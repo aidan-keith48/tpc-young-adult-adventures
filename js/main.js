@@ -621,7 +621,29 @@
     });
   }
 
+  /* ---------- Scroll-reveal (.reveal elements fade in on view) ---------- */
+  function wireReveals() {
+    const els = document.querySelectorAll(".reveal");
+    if (!els.length) return;
+    if (!("IntersectionObserver" in window)) {
+      els.forEach((el) => el.classList.add("in"));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    els.forEach((el) => io.observe(el));
+  }
+
   /* ---------- Boot ---------- */
+  // .has-js gates the reveal-hidden state so content stays visible without JS
+  document.documentElement.classList.add("has-js");
+
   // Read-only handle for roadmap.js (and anything else that needs the plan)
   window.Trailhead = { getPlan: () => plan };
 
@@ -633,6 +655,7 @@
     wireAddForms();
     wireSaveLoad();
     initBeachWaves();
+    wireReveals();
 
     const tripInput = document.getElementById("tripName");
     if (tripInput) {
