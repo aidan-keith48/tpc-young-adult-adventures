@@ -1,0 +1,116 @@
+{
+  "meta": { "app": "TPC Young Adult Adventures", "version": 3, "tripName": "Big weekend away" },
+  "people": [
+    { "id": "p1", "name": "Naledi Mokoena" },
+    { "id": "p2", "name": "Josh van Wyk" },
+    { "id": "p3", "name": "Ayanda Dlamini" },
+    { "id": "p4", "name": "Mia Petersen" }
+  ],
+  "categories": {
+    "roadTrips": [
+      {
+        "name": "Golden Route Adventure",
+        "attendees": ["p1", "p2", "p3", "p4"],
+        "costs": [{ "label": "Petrol", "amount": 800 }],
+        "stops": [
+          {
+            "name": "Clarence Drive sunset run",
+            "time": "4:30 PM",
+            "price": 550,
+            "location": "R44, Gordon's Bay",
+            "link": "https://maps.google.com",
+            "meetingPoint": "Church parking lot",
+            "whatToBring": "Snacks, aux cord, a hoodie",
+            "notes": "Leave before traffic — golden hour hits around 6."
+          },
+          {
+            "name": "Padstal stop for milkshakes",
+            "time": "7:15 PM",
+            "price": 180,
+            "location": "Pringle Bay",
+            "link": "",
+            "meetingPoint": "",
+            "whatToBring": "",
+            "notes": "Milkshakes are mandatory."
+          }
+        ]
+      }
+    ],
+    "beachDays": [
+      {
+        "name": "Low Tide Loop",
+        "attendees": ["p1", "p3"],
+        "costs": [{ "label": "Firewood + marshmallows", "amount": 220 }],
+        "stops": [
+          {
+            "name": "Bonfire + s'mores at the cove",
+            "time": "6:00 PM",
+            "price": 150,
+            "location": "",
+            "link": "",
+            "meetingPoint": "North lot, by the showers",
+            "whatToBring": "Firewood, blankets, marshmallows",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "camping": [
+      {
+        "name": "Lakeside Weekend",
+        "attendees": ["p2", "p3", "p4"],
+        "costs": [{ "label": "Groceries", "amount": 1400 }],
+        "stops": [
+          {
+            "name": "Two nights, lakeside site 14",
+            "time": "Check-in 2 PM",
+            "price": 950,
+            "location": "",
+            "link": "https://www.capenature.co.za",
+            "meetingPoint": "Reception gate",
+            "whatToBring": "Tent, sleeping bag, headlamp",
+            "notes": "Book early — fills fast."
+          }
+        ]
+      }
+    ],
+    "hiking": [
+      {
+        "name": "Ridge Runners",
+        "attendees": ["p1", "p2"],
+        "costs": [],
+        "stops": [
+          {
+            "name": "Ridge loop, 10 km, 400 m gain",
+            "time": "7:00 AM",
+            "price": 120,
+            "location": "",
+            "link": "https://alltrails.com",
+            "meetingPoint": "Trailhead kiosk",
+            "whatToBring": "2L water, sunscreen, trail snacks",
+            "notes": "Start early to beat the heat."
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "Concert Night",
+        "attendees": ["p1", "p2", "p4"],
+        "costs": [{ "label": "Uber split", "amount": 180 }],
+        "stops": [
+          {
+            "name": "Indie show at the amphitheatre",
+            "time": "7:00 PM",
+            "price": 350,
+            "location": "Kirstenbosch",
+            "link": "https://maps.google.com",
+            "meetingPoint": "Main gate, 6:15 PM",
+            "whatToBring": "Picnic blanket, jacket, tickets on your phone",
+            "notes": "Gates open at 5 — go early for a good spot on the lawn."
+          }
+        ]
+      }
+    ]
+  }
+}
