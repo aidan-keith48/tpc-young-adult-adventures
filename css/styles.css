@@ -139,6 +139,82 @@ a { color: inherit; }
 .hero__polaroids .pola--4 .pola__img { background: linear-gradient(135deg, #C97C42, #6B3A22); }
 .hero__polaroids .pola--5 .pola__img { background: linear-gradient(135deg, #FBC66A, #C25B7A); }
 
+/* ---------- Waymarkers (verses for the road) ---------- */
+.verses {
+  position: relative; overflow: hidden;
+  background: linear-gradient(to bottom, #2A1E3C 0%, #22303A 55%, #1C2B27 100%);
+  color: var(--paper);
+  padding: clamp(3.2rem, 7vw, 5.2rem) clamp(1rem, 4vw, 2.5rem) clamp(3.2rem, 7vw, 5.5rem);
+}
+.verses__stars { position: absolute; inset: 0; pointer-events: none; }
+.verses__glow {
+  position: absolute; left: 50%; top: 26%; transform: translate(-50%, -50%);
+  width: min(70vw, 560px); aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(251,198,106,.16) 0%, transparent 65%);
+  animation: verses-glow 8s ease-in-out infinite;
+}
+@keyframes verses-glow { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
+.verses__inner { position: relative; max-width: var(--wrap); margin: 0 auto; }
+.verses__eyebrow {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .22em;
+  font-size: .72rem; color: var(--amber); margin: 0 0 .9rem; text-align: center;
+}
+.verses__title {
+  text-align: center; font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 800;
+  margin: 0 0 clamp(2.2rem, 5vw, 3.2rem);
+}
+
+/* featured verse — big, handwritten, floating quote mark */
+.verse-feature { margin: 0 auto clamp(2.2rem, 5vw, 3.2rem); max-width: 46ch; text-align: center; position: relative; }
+.verse-feature::before {
+  content: "“"; position: absolute; top: -.95em; left: 50%;
+  font-family: "Caveat", cursive; font-size: 5rem; line-height: 1; color: var(--amber); opacity: .55;
+  animation: quote-drift 6s ease-in-out infinite alternate;
+}
+@keyframes quote-drift {
+  from { transform: translateX(-50%) translateY(0) rotate(-5deg); }
+  to   { transform: translateX(-50%) translateY(7px) rotate(4deg); }
+}
+.verse-feature blockquote {
+  margin: 0; font-family: "Caveat", cursive; font-weight: 500;
+  font-size: clamp(1.55rem, 3.4vw, 2.15rem); line-height: 1.3; color: var(--paper);
+}
+.verse-feature blockquote em { font-style: italic; color: #FBC66A; }
+.verse-feature figcaption {
+  margin-top: .9rem; font-family: var(--mono); font-size: .74rem;
+  letter-spacing: .18em; text-transform: uppercase; color: rgba(240,235,220,.65);
+}
+
+/* themed groups */
+.verses__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; align-items: start; }
+.verses__group {
+  --vg-accent: var(--teal);
+  background: rgba(240,235,220,.05);
+  border: 1px solid rgba(240,235,220,.13);
+  border-top: 3px solid var(--vg-accent);
+  border-radius: 16px; padding: 1.2rem 1.25rem;
+  transition: transform .25s ease, background .25s ease;
+}
+.verses__group:hover { transform: translateY(-4px); background: rgba(240,235,220,.08); }
+.verses__group--teal  { --vg-accent: #4FB8AE; }
+.verses__group--amber { --vg-accent: var(--amber); }
+.verses__group--clay  { --vg-accent: #E0793F; }
+.verses__theme {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--vg-accent); margin: 0 0 1rem; font-weight: 700;
+}
+.verse { margin: 0; }
+.verse + .verse { margin-top: .95rem; padding-top: .95rem; border-top: 1px dashed rgba(240,235,220,.16); }
+.verse blockquote { margin: 0; font-size: .95rem; line-height: 1.6; color: rgba(240,235,220,.88); }
+.verse figcaption { margin-top: .45rem; font-family: "Caveat", cursive; font-size: 1.2rem; color: var(--vg-accent); }
+
+/* scroll-reveal (JS adds .in; .has-js guard keeps content visible without JS) */
+.has-js .reveal {
+  opacity: 0; transform: translateY(20px);
+  transition: opacity .7s ease var(--d, 0s), transform .7s ease var(--d, 0s);
+}
+.has-js .reveal.in { opacity: 1; transform: none; }
+
 /* ---------- Route (the dashed line down the page) ---------- */
 .route {
   position: relative;
@@ -715,6 +791,8 @@ body.no-scroll { overflow: hidden; }
   .landing__boat { bottom: 56px; font-size: 1.7rem; }
 
   .adventure__addstop { grid-template-columns: 1fr; }
+
+  .verses__grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -724,4 +802,5 @@ body.no-scroll { overflow: hidden; }
     opacity: 1 !important; transform: none !important;
   }
   .landing__photos--garland { transform: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
 }
