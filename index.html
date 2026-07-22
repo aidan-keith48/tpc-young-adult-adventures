@@ -21,11 +21,15 @@
   <header class="topbar">
     <a class="topbar__brand" href="index.html">Trailhead</a>
     <div class="topbar__actions">
+      <button class="btn" id="startSyncBtn" type="button" hidden>Start syncing this crew</button>
+      <button class="btn" id="inviteBtn" type="button" hidden>Invite the group</button>
       <button class="btn btn--solid" id="newTripBtn" type="button">New trip</button>
     </div>
   </header>
 
   <main class="wrap">
+    <p class="error-banner" id="dbError" hidden></p>
+
     <form class="panel" id="newTripForm" hidden>
       <h2>New trip</h2>
       <div class="form-row">
@@ -57,6 +61,10 @@
 
   <script src="js/config.js"></script>
   <script src="js/calculator.js"></script>
+  <!-- Only used once js/config.js has a real firebase config and the URL
+       carries ?crew=... — local mode never touches these. -->
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
   <script src="js/db.js"></script>
   <script src="js/map.js"></script>
   <script src="js/board.js"></script>

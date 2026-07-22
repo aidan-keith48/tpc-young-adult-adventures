@@ -18,11 +18,13 @@
   </p>
 
   <header class="topbar">
-    <a class="topbar__brand" href="index.html">Trailhead</a>
+    <a class="topbar__brand" href="index.html" id="brandLink">Trailhead</a>
   </header>
 
   <main class="wrap">
-    <a class="back-link" href="index.html">← Back to board</a>
+    <a class="back-link" href="index.html" id="backLink">← Back to board</a>
+
+    <p class="error-banner" id="dbError" hidden></p>
 
     <div id="tripNotFound" hidden>
       <p>This trip doesn't exist (or the link is wrong).</p>
@@ -115,6 +117,10 @@
 
   <script src="js/config.js"></script>
   <script src="js/calculator.js"></script>
+  <!-- Only used once js/config.js has a real firebase config and the URL
+       carries ?crew=... — local mode never touches these. -->
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
   <script src="js/db.js"></script>
   <script src="js/map.js"></script>
   <script src="js/trip.js"></script>

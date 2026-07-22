@@ -20,6 +20,12 @@
 
 * { box-sizing: border-box; }
 
+/* Author rules that set an explicit `display` (like .btn below) otherwise
+   beat the browser's built-in `[hidden] { display: none }` UA rule
+   regardless of specificity, since author styles always win over UA
+   styles — so `hidden` alone silently stops working on any such element. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: "DM Sans", system-ui, -apple-system, sans-serif;
@@ -67,6 +73,15 @@ a { color: var(--accent); }
   font-size: 0.85rem;
   padding: 0.55rem 1.25rem;
   text-align: center;
+}
+
+.error-banner {
+  background: #fdeceb;
+  border: 1px solid #eab3ac;
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
 }
 
 /* ---------- buttons ---------- */

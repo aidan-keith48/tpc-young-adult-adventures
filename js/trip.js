@@ -134,21 +134,52 @@
 
   function init() {
     const tripId = getTripId();
-    window.TrailheadDB.init();
-    const trip = tripId && window.TrailheadDB.getTrip(tripId);
+    let crewCode;
+    try {
+      ({ crewCode } = window.TrailheadDB.init());
+    } catch (err) {
+      document.getElementById("dbError").hidden = false;
+      document.getElementById("dbError").textContent =
+        "Couldn't connect to this crew's data: " + err.message;
+      return;
+    }
 
-    if (!trip) {
+    const withCrew = (url) => (crewCode ? `${url}${url.includes("?") ? "&" : "?"}crew=${encodeURIComponent(crewCode)}` : url);
+    document.getElementById("brandLink").href = withCrew("index.html");
+    document.getElementById("backLink").href = withCrew("index.html");
+
+    if (!tripId) {
       document.getElementById("tripNotFound").hidden = false;
       return;
     }
-    document.getElementById("tripContent").hidden = false;
 
-    const cat = CATEGORIES[trip.category];
-    document.getElementById("tripCat").textContent = cat ? cat.label : trip.category;
-    document.getElementById("tripTitle").textContent = trip.title;
-    document.getElementById("tripDate").textContent = trip.date || "No date yet";
-    document.title = `Trailhead — ${trip.title}`;
+    // onTrip fires once synchronously in local mode; in sync mode the first
+    // fire arrives once Firebase's listener resolves, and again on rename.
+    let wired = false;
+    let cat = null;
+    window.TrailheadDB.onTrip(tripId, (trip) => {
+      if (!trip) {
+        document.getElementById("tripNotFound").hidden = false;
+        document.getElementById("tripContent").hidden = true;
+        return;
+      }
+      document.getElementById("tripNotFound").hidden = true;
+      document.getElementById("tripContent").hidden = false;
 
+      cat = CATEGORIES[trip.category];
+      document.getElementById("tripCat").textContent = cat ? cat.label : trip.category;
+      document.getElementById("tripTitle").textContent = trip.title;
+      document.getElementById("tripDate").textContent = trip.date || "No date yet";
+      document.title = `Trailhead — ${trip.title}`;
+
+      if (wired) return;
+      wired = true;
+      wireTripData(tripId, () => cat);
+      wireForms(tripId);
+    });
+  }
+
+  function wireTripData(tripId, getCat) {
     const peopleOverrideInput = document.getElementById("peopleOverride");
 
     window.TrailheadDB.onTripData(tripId, (data) => {
@@ -162,10 +193,18 @@
         peopleOverrideInput.value = data.settings.peopleOverride ?? "";
       }
 
+      const cat = getCat();
       const mapVibe = cat ? cat.vibe : "road";
-      window.TripMap.update(document.getElementById("mapBox"), data.stops, mapVibe, trip.title, `map-${tripId}`);
+      const tripTitle = document.getElementById("tripTitle").textContent;
+      window.TripMap.update(document.getElementById("mapBox"), data.stops, mapVibe, tripTitle, `map-${tripId}`);
     });
 
+    peopleOverrideInput.addEventListener("change", () => {
+      window.TrailheadDB.setPeopleOverride(tripId, peopleOverrideInput.value);
+    });
+  }
+
+  function wireForms(tripId) {
     document.getElementById("attendeeForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const data = new FormData(e.target);
@@ -210,10 +249,6 @@
       if (!text) return;
       window.TrailheadDB.addSuggestion(tripId, { name: (data.get("name") || "").trim(), text });
       e.target.reset();
-    });
-
-    peopleOverrideInput.addEventListener("change", () => {
-      window.TrailheadDB.setPeopleOverride(tripId, peopleOverrideInput.value);
     });
   }
 

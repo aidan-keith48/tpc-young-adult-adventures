@@ -14,8 +14,19 @@ window.TrailheadConfig = {
     events: { label: "Events", vibe: "event" },
   },
 
-  // Filled in during Stage 2 (Firebase project setup). This object is safe to
-  // be public — Firebase's client config is not a secret. The Realtime
-  // Database security rules are the only real access boundary; see README.
+  // Paste the config object Firebase showed you when you registered the web
+  // app (Project settings -> General -> Your apps -> the </> icon). This is
+  // safe to commit — Firebase's client config is not a secret. The Realtime
+  // Database security rules in firebase/database.rules.json are the only
+  // real access boundary; see README. Leave as null to force local mode.
   firebase: null,
+  // firebase: {
+  //   apiKey: "...",
+  //   authDomain: "...",
+  //   databaseURL: "...",
+  //   projectId: "...",
+  //   storageBucket: "...",
+  //   messagingSenderId: "...",
+  //   appId: "...",
+  // },
 };

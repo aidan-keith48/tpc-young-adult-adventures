@@ -1,0 +1,114 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "crews": {
+      "$crewCode": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChild('meta') || newData.child('tombstone').val() === true",
+
+        "meta": {
+          ".validate": "newData.hasChildren(['name','createdAt','schemaVersion'])",
+          "name":          { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+          "createdAt":     { ".validate": "newData.isNumber()" },
+          "rotatedAt":     { ".validate": "newData.isNumber() || newData.val() === null" },
+          "schemaVersion": { ".validate": "newData.isNumber()" },
+          "$other":        { ".validate": false }
+        },
+
+        "trips": {
+          ".validate": "newData.numChildren() <= 300",
+          "$tripId": {
+            ".validate": "newData.hasChildren(['title','category','status','archived'])",
+            "title":         { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+            "category":      { ".validate": "newData.isString() && newData.val().matches(/^(roadTrips|beachDays|camping|hiking|events)$/)" },
+            "date":          { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "cover":         { ".validate": "newData.isString() && newData.val().length <= 500" },
+            "status":        { ".validate": "newData.val() === 'planned' || newData.val() === 'cancelled'" },
+            "archived":      { ".validate": "newData.isBoolean()" },
+            "attendeeCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 500" },
+            "headcount":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 500" },
+            "total":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 300000000" },
+            "perPerson":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 300000000" },
+            "updatedAt":     { ".validate": "newData.isNumber()" },
+            "$other":        { ".validate": false }
+          }
+        },
+
+        "tripData": {
+          "$tripId": {
+            "attendees": {
+              ".validate": "newData.numChildren() <= 100",
+              "$attendeeId": {
+                ".validate": "newData.hasChildren(['name','addedAt'])",
+                "name":    { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+                "addedAt": { ".validate": "newData.isNumber()" },
+                "$other":  { ".validate": false }
+              }
+            },
+            "stops": {
+              ".validate": "newData.numChildren() <= 200",
+              "$stopId": {
+                ".validate": "newData.hasChildren(['name','order'])",
+                "name":         { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+                "time":         { ".validate": "newData.isString() && newData.val().length <= 40" },
+                "price":        { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+                "location":     { ".validate": "newData.isString() && newData.val().length <= 200" },
+                "link":         { ".validate": "newData.isString() && newData.val().length <= 500" },
+                "meetingPoint": { ".validate": "newData.isString() && newData.val().length <= 200" },
+                "whatToBring":  { ".validate": "newData.isString() && newData.val().length <= 300" },
+                "notes":        { ".validate": "newData.isString() && newData.val().length <= 1000" },
+                "addedBy":      { ".validate": "newData.isString() && newData.val().length <= 60" },
+                "order":        { ".validate": "newData.isNumber()" },
+                "$other":       { ".validate": false }
+              }
+            },
+            "costs": {
+              ".validate": "newData.numChildren() <= 200",
+              "$costId": {
+                ".validate": "newData.hasChildren(['label','amount'])",
+                "label":  { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+                "amount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+                "$other": { ".validate": false }
+              }
+            },
+            "suggestions": {
+              ".validate": "newData.numChildren() <= 1000",
+              "$suggestionId": {
+                ".validate": "newData.hasChildren(['text','at'])",
+                "name": { ".validate": "newData.isString() && newData.val().length <= 60" },
+                "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
+                "at":   { ".validate": "newData.isNumber()" },
+                "$other": { ".validate": false }
+              }
+            },
+            "settings": {
+              "peopleOverride": { ".validate": "newData.val() === null || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 500)" },
+              "$other": { ".validate": false }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "trash": {
+          ".validate": "newData.numChildren() <= 2000",
+          "$entryId": {
+            ".validate": "newData.hasChildren(['kind','deletedAt'])",
+            "kind":       { ".validate": "newData.val() === 'trip' || newData.val() === 'attendee' || newData.val() === 'stop' || newData.val() === 'cost' || newData.val() === 'suggestion'" },
+            "tripId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "originalId": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "deletedAt":  { ".validate": "newData.isNumber()" },
+            "deletedBy":  { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "data":       { ".validate": true }
+          }
+        },
+
+        "tombstone":        { ".validate": "newData.val() === true" },
+        "tombstoneAt":      { ".validate": "newData.isNumber()" },
+        "tombstoneMessage": { ".validate": "newData.isString() && newData.val().length <= 200" }
+      }
+    }
+  }
+}
