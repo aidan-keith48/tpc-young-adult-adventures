@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trailhead — trip</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:ital,opsz,wght@0,9..40,400..600;1,9..40,400&family=Caveat:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/base.css" />
+</head>
+<body>
+
+  <p class="warning-banner">
+    Anyone with this link can view and edit everything. Don't put home addresses, phone numbers, or payment details in here.
+  </p>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="index.html">Trailhead</a>
+  </header>
+
+  <main class="wrap">
+    <a class="back-link" href="index.html">← Back to board</a>
+
+    <div id="tripNotFound" hidden>
+      <p>This trip doesn't exist (or the link is wrong).</p>
+    </div>
+
+    <div id="tripContent" hidden>
+      <div class="trip-head">
+        <div>
+          <span class="trip-head__cat" id="tripCat"></span>
+          <h1 id="tripTitle"></h1>
+          <p id="tripDate" class="list-row__sub"></p>
+        </div>
+      </div>
+
+      <section class="panel">
+        <h2>Map</h2>
+        <div class="map-box" id="mapBox"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Who's coming</h2>
+        <div id="attendeeChips"></div>
+        <form id="attendeeForm" class="form-row">
+          <label class="field" style="flex:1 1 200px;">Your name
+            <input name="name" placeholder="Type your name" required maxlength="60" />
+          </label>
+          <button class="btn btn--solid" type="submit">I'm in</button>
+        </form>
+        <p class="empty-hint" style="margin-top:0.75rem;">
+          Split defaults to the attendee count below, but you can override it if people are joining late.
+        </p>
+        <div class="form-row" style="margin-top:0.5rem;">
+          <label class="field" style="max-width:220px;">Headcount override
+            <input type="number" id="peopleOverride" min="0" placeholder="e.g. 6" />
+          </label>
+          <span class="list-row__sub" id="headcountNote"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Stops</h2>
+        <div id="stopsList"></div>
+        <form id="stopForm" class="form-row">
+          <label class="field" style="flex:2 1 200px;">Activity
+            <input name="name" placeholder="Stop name" required maxlength="120" />
+          </label>
+          <label class="field">Place link
+            <input name="link" type="url" placeholder="https://maps.app.goo.gl/…" />
+          </label>
+          <label class="field" style="max-width:140px;">Price (R)
+            <input name="price" type="number" min="0" step="1" placeholder="0" />
+          </label>
+          <button class="btn btn--solid" type="submit">Add stop</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Cost calculator</h2>
+        <div id="costsList"></div>
+        <form id="costForm" class="form-row">
+          <label class="field" style="flex:2 1 160px;">Shared cost
+            <input name="label" placeholder="Petrol, tickets…" required maxlength="80" />
+          </label>
+          <label class="field" style="max-width:140px;">Amount (R)
+            <input name="amount" type="number" min="0" step="0.01" required />
+          </label>
+          <button class="btn btn--solid" type="submit">Add</button>
+        </form>
+        <div class="calc-summary" style="margin-top:1rem;">
+          <span><strong id="calcTotal"></strong>total</span>
+          <span><strong id="calcPerPerson"></strong>per person</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Suggestions</h2>
+        <div id="suggestionsList"></div>
+        <form id="suggestionForm" class="form-row">
+          <label class="field" style="max-width:160px;">Name (optional)
+            <input name="name" maxlength="60" />
+          </label>
+          <label class="field" style="flex:2 1 200px;">Suggestion
+            <input name="text" placeholder="What should we add?" required maxlength="500" />
+          </label>
+          <button class="btn btn--solid" type="submit">Add</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/trip.js"></script>
+</body>
+</html>
