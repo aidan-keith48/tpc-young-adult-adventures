@@ -1,0 +1,232 @@
+/* =========================================================
+   base.css — shared design system. Deliberately plain for
+   Stage 1: the trip-first restructure comes first, the five
+   category "themes" (ported from the current site's look)
+   are reapplied on top of this in Stage 4, once the data
+   model has stopped moving. See css/themes.css (arrives then).
+   ========================================================= */
+:root {
+  --ink: #1c1c1f;
+  --ink-soft: #55565c;
+  --paper: #fafaf8;
+  --card: #ffffff;
+  --line: #e2e1dc;
+  --accent: #2c6e63;
+  --accent-ink: #ffffff;
+  --danger: #b3432f;
+  --radius: 10px;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Bricolage Grotesque", "DM Sans", system-ui, sans-serif;
+  margin: 0 0 0.4em;
+}
+
+a { color: var(--accent); }
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.25rem 3rem;
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+.topbar__brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+.topbar__actions { display: flex; gap: 0.5rem; }
+
+/* ---------- warning banner (always visible per the security model) ---------- */
+.warning-banner {
+  background: #fff4e5;
+  border-bottom: 1px solid #f0d9a8;
+  color: #6b4a1a;
+  font-size: 0.85rem;
+  padding: 0.55rem 1.25rem;
+  text-align: center;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 0.55rem 1rem;
+  font-size: 0.92rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { border-color: var(--accent); }
+.btn--solid { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn--solid:hover { opacity: 0.92; }
+.btn--danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn--small { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+
+/* ---------- forms ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.field input, .field select, .field textarea {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+}
+.form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
+.form-row .field { flex: 1 1 160px; }
+
+/* ---------- board ---------- */
+.board__section-title {
+  margin: 2rem 0 0.75rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.trip-card {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 1rem;
+  text-decoration: none;
+  color: var(--ink);
+  border-left: 6px solid var(--cat-color, var(--accent));
+}
+.trip-card:hover { border-color: var(--accent); }
+.trip-card__cat {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+.trip-card__title { margin: 0.15rem 0 0.4rem; font-size: 1.15rem; }
+.trip-card__meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.board__empty { color: var(--ink-soft); font-style: italic; }
+
+/* ---------- trip page ---------- */
+.trip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.trip-head__cat {
+  display: inline-block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
+.trip-head h1 { font-size: 1.8rem; }
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.panel h2 { font-size: 1.05rem; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  background: #f1f1ec;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  margin: 0.15rem 0.3rem 0.15rem 0;
+}
+.chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.list-row:last-child { border-bottom: none; }
+.list-row__main { display: flex; flex-direction: column; }
+.list-row__name { font-weight: 600; }
+.list-row__sub { font-size: 0.82rem; color: var(--ink-soft); }
+.list-row__del {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.list-row__del:hover { color: var(--danger); }
+
+.empty-hint { color: var(--ink-soft); font-style: italic; font-size: 0.9rem; }
+
+.calc-summary {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+.calc-summary strong { display: block; font-size: 1.3rem; }
+
+.map-box { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+.map-box svg { display: block; width: 100%; height: auto; }
+
+.back-link { font-size: 0.9rem; margin-bottom: 1rem; display: inline-block; }

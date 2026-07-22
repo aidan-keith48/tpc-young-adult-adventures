@@ -3,521 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TPC Young Adult Adventures — Plan adventures with your people</title>
-  <meta name="description" content="A place to plan road trips, beach days, camping, and hikes with your friends." />
+  <title>Trailhead — trip board</title>
+  <meta name="description" content="Plan road trips, beach days, camping, hikes, and events with your crew." />
 
-  <!-- Fonts: Bricolage Grotesque (display) · DM Sans (body) · Space Mono (data) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:ital,opsz,wght@0,9..40,400..600;1,9..40,400&family=Caveat:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:ital,opsz,wght@0,9..40,400..600;1,9..40,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/base.css" />
 </head>
 <body>
 
-  <!-- ============ LOADER ============ -->
-  <div id="loader" role="dialog" aria-label="Loading TPC Young Adult Adventures">
-    <div class="loader__inner">
-      <p class="loader__mark"><span class="loader__pin" aria-hidden="true"></span>TPC Young Adult Adventures</p>
-      <p class="loader__sub">packing the car…</p>
-      <div class="loader__road" aria-hidden="true"><span class="loader__van">🚐</span></div>
-      <button class="loader__btn btn btn--lg" type="button">Let's go →</button>
-    </div>
-  </div>
-  <noscript><style>#loader { display: none; }</style></noscript>
+  <p class="warning-banner">
+    Anyone with this link can view and edit everything. Don't put home addresses, phone numbers, or payment details in here.
+  </p>
 
-  <!-- ============ NAV ============ -->
-  <header class="nav" id="top">
-    <a class="nav__brand" href="#top">
-      <span class="nav__pin" aria-hidden="true"></span>
-      TPC Young Adult Adventures
-    </a>
-    <nav class="nav__links" aria-label="Sections">
-      <a href="#crew">Crew</a>
-      <a href="#road-trips">Road Trips</a>
-      <a href="#beach-days">Beach Days</a>
-      <a href="#camping">Camping</a>
-      <a href="#hiking">Hiking</a>
-      <a href="#events">Events</a>
-      <a href="#calculator">Calculator</a>
-      <a href="#roadmap">Roadmap</a>
-      <a href="#guide">Guide</a>
-    </nav>
-    <div class="nav__data">
-      <button class="btn btn--ghost" id="importBtn">Load plan</button>
-      <button class="btn btn--solid" id="exportBtn">Save plan</button>
-      <input type="file" id="importFile" accept="application/json" hidden />
+  <header class="topbar">
+    <a class="topbar__brand" href="index.html">Trailhead</a>
+    <div class="topbar__actions">
+      <button class="btn btn--solid" id="newTripBtn" type="button">New trip</button>
     </div>
   </header>
 
-  <!-- ============ HERO / COLLAGE ============ -->
-  <section class="hero">
-    <div class="hero__contour" aria-hidden="true"></div>
-    <div class="hero__inner">
-      <div class="hero__copy">
-        <p class="eyebrow">Field guide · est. this year</p>
-        <h1 class="hero__title">Plan the trip<br />before the group chat forgets.</h1>
-        <p class="hero__lede">
-          One page to line up road trips, beach days, campouts, hikes, and the
-          random plans in between — split the costs and save it all to a file you own.
-        </p>
-        <div class="hero__actions">
-          <a href="#road-trips" class="btn btn--solid btn--lg">Start planning</a>
-          <a href="#roadmap" class="btn btn--ghost btn--lg">See the roadmap</a>
-        </div>
-      </div>
-
-      <!-- Group photos: swap each .pola__img background for url('your-photo.jpg') once you've got them -->
-      <div class="hero__polaroids" role="img" aria-label="Photos of the group on past adventures">
-        <figure class="pola pola--1"><div class="pola__img">photo</div><figcaption class="pola__cap">your crew</figcaption></figure>
-        <figure class="pola pola--2"><div class="pola__img">photo</div><figcaption class="pola__cap">last summer</figcaption></figure>
-        <figure class="pola pola--3"><div class="pola__img">photo</div><figcaption class="pola__cap">the coast run</figcaption></figure>
-        <figure class="pola pola--4"><div class="pola__img">photo</div><figcaption class="pola__cap">base camp</figcaption></figure>
-        <figure class="pola pola--5"><div class="pola__img">photo</div><figcaption class="pola__cap">the switchbacks</figcaption></figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ WAYMARKERS (verses for the road) ============ -->
-  <section class="verses" id="waymarkers" aria-label="Verses for the road">
-    <div class="verses__stars" aria-hidden="true">
-      <span class="star" style="top:14%;left:6%;"></span>
-      <span class="star" style="top:30%;left:14%;animation-delay:.6s;"></span>
-      <span class="star" style="top:10%;left:26%;animation-delay:1.1s;"></span>
-      <span class="star" style="top:22%;left:42%;animation-delay:.3s;"></span>
-      <span class="star" style="top:8%;left:58%;animation-delay:.9s;"></span>
-      <span class="star" style="top:26%;left:70%;animation-delay:1.4s;"></span>
-      <span class="star" style="top:12%;left:84%;animation-delay:.5s;"></span>
-      <span class="star" style="top:34%;left:92%;animation-delay:1s;"></span>
-    </div>
-    <div class="verses__glow" aria-hidden="true"></div>
-    <div class="verses__inner">
-      <p class="verses__eyebrow reveal">Waymarkers · for the road ahead</p>
-      <h2 class="verses__title reveal" style="--d:.1s">Why we go together</h2>
-
-      <figure class="verse-feature reveal" style="--d:.2s">
-        <blockquote>
-          By faith Abraham, when called to go to a place he would later receive as his
-          inheritance, obeyed and went, <em>even though he did not know where he was going</em>.
-        </blockquote>
-        <figcaption>Hebrews 11:8</figcaption>
-      </figure>
-
-      <div class="verses__grid">
-        <div class="verses__group verses__group--teal reveal" style="--d:.15s">
-          <h3 class="verses__theme">Community &amp; shared journeys</h3>
-          <figure class="verse">
-            <blockquote>“Two are better than one, because they have a good return for their labor: If either of them falls down, one can help the other up. But pity anyone who falls and has no one to help them up.”</blockquote>
-            <figcaption>Ecclesiastes 4:9–12</figcaption>
-          </figure>
-          <figure class="verse">
-            <blockquote>“They devoted themselves to the apostles’ teaching and to fellowship, to the breaking of bread and to prayer… Every day they continued to meet together in the temple courts. They broke bread in their homes and ate together with glad and sincere hearts.”</blockquote>
-            <figcaption>Acts 2:42, 46</figcaption>
-          </figure>
-        </div>
-
-        <div class="verses__group verses__group--amber reveal" style="--d:.3s">
-          <h3 class="verses__theme">Living life with good people</h3>
-          <figure class="verse">
-            <blockquote>“As iron sharpens iron, so one person sharpens another.”</blockquote>
-            <figcaption>Proverbs 27:17</figcaption>
-          </figure>
-          <figure class="verse">
-            <blockquote>“Walk with the wise and become wise, for a companion of fools suffers harm.”</blockquote>
-            <figcaption>Proverbs 13:20</figcaption>
-          </figure>
-          <figure class="verse">
-            <blockquote>“Be devoted to one another in love. Honor one another above yourselves.”</blockquote>
-            <figcaption>Romans 12:10</figcaption>
-          </figure>
-        </div>
-
-        <div class="verses__group verses__group--clay reveal" style="--d:.45s">
-          <h3 class="verses__theme">Life as an adventure</h3>
-          <figure class="verse">
-            <blockquote>“Trust in the LORD with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.”</blockquote>
-            <figcaption>Proverbs 3:5–6</figcaption>
-          </figure>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ ROUTE: the sections are stops on a line ============ -->
-  <main class="route">
-
-    <!-- CREW -->
-    <section class="stop" id="crew" data-accent="teal">
-      <header class="stop__head">
-        <span class="stop__num">00</span>
-        <div>
-          <h2 class="stop__title">The Crew</h2>
-          <p class="stop__tag">Add everyone once — then just pick who's coming to each adventure.</p>
-        </div>
-      </header>
-      <div class="stop__grid">
-        <div class="crew__chips" id="crewChips" aria-live="polite"></div>
-        <form class="add" id="crewForm">
-          <h3 class="add__title">Add a person</h3>
-          <label>First name <input name="firstName" placeholder="Naledi" required /></label>
-          <label>Surname <input name="lastName" placeholder="Mokoena" /></label>
-          <button class="btn btn--solid" type="submit">Add to crew</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- ROAD TRIPS -->
-    <section class="stop stop--hero" id="road-trips" data-accent="amber">
-      <!-- Sunset drive landing: swap each .pola__img background for url('your-photo.jpg') -->
-      <div class="landing" data-vibe="road">
-        <div class="landing__bg" aria-hidden="true"></div>
-        <div class="landing__glow" aria-hidden="true"></div>
-        <div class="landing__inner">
-          <div class="landing__copy">
-            <p class="landing__eyebrow">01 · Road Trips</p>
-            <h2 class="landing__title"><span class="w">Windows</span> <span class="w">down.</span><br /><span class="w">Nowhere</span> <span class="w">to&nbsp;be.</span></h2>
-            <p class="landing__lede">Map the route, load the cooler, argue about the aux. This is where the long drives get planned — one good detour at a time.</p>
-            <a href="#road-trips-body" class="btn btn--solid btn--lg landing__cta">Plan the drive →</a>
-          </div>
-          <div class="landing__photos landing__photos--pola" aria-label="Photos from past road trips">
-            <figure class="pola pola--1"><div class="pola__img">photo</div><figcaption class="pola__cap">gas station tacos</figcaption></figure>
-            <figure class="pola pola--2"><div class="pola__img">photo</div><figcaption class="pola__cap">golden hour, mile 212</figcaption></figure>
-            <figure class="pola pola--3"><div class="pola__img">photo</div><figcaption class="pola__cap">the good wrong turn</figcaption></figure>
-            <figure class="pola pola--4"><div class="pola__img">photo</div><figcaption class="pola__cap">someone's playlist</figcaption></figure>
-          </div>
-        </div>
-        <div class="strip strip--road" aria-hidden="true"><span class="strip__mover">🚐</span></div>
-      </div>
-
-      <div class="stop__body" id="road-trips-body">
-        <header class="stop__head">
-          <span class="stop__num">01</span>
-          <div>
-            <h2 class="stop__title">Road Trips</h2>
-            <p class="stop__tag">Long drives, good playlists, petrol-money math.</p>
-          </div>
-        </header>
-        <div class="stop__grid">
-          <div class="adventures" data-category="roadTrips" aria-live="polite"></div>
-          <form class="add" data-category="roadTrips">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Golden Route Adventure" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
-        </div>
-        <div class="catmap-wrap">
-          <p class="catmap__title">The route so far</p>
-          <div class="catmap" data-category="roadTrips" data-vibe="road"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- BEACH DAYS -->
-    <section class="stop stop--hero" id="beach-days" data-accent="teal">
-      <!-- Beach day landing: swap each .snap__img background for url('your-photo.jpg') -->
-      <div class="landing" data-vibe="beach">
-        <div class="landing__bg" aria-hidden="true"></div>
-        <div class="landing__glow" aria-hidden="true"></div>
-        <div class="landing__inner">
-          <div class="landing__copy">
-            <p class="landing__eyebrow">02 · Beach Days</p>
-            <h2 class="landing__title"><span class="w">Sand</span> <span class="w">everywhere.</span><br /><span class="w">Worth</span> <span class="w">it.</span></h2>
-            <p class="landing__lede">Cooler packed, tides checked, parking figured out before noon. Plan the slow kind of day — the one that ends with salt in your hair.</p>
-            <a href="#beach-days-body" class="btn btn--solid btn--lg landing__cta">Plan the day →</a>
-          </div>
-          <div class="landing__photos landing__photos--garland" aria-label="Photos from past beach days">
-            <div class="landing__string" aria-hidden="true"></div>
-            <figure class="snap snap--1"><div class="snap__img">photo</div><figcaption class="snap__cap">first one in</figcaption></figure>
-            <figure class="snap snap--2"><div class="snap__img">photo</div><figcaption class="snap__cap">low tide finds</figcaption></figure>
-            <figure class="snap snap--3"><div class="snap__img">photo</div><figcaption class="snap__cap">sunset swim</figcaption></figure>
-          </div>
-        </div>
-        <span class="landing__boat" aria-hidden="true">⛵</span>
-        <div class="landing__sea" aria-hidden="true">
-          <div class="wave wave--back"></div>
-          <div class="wave wave--mid"></div>
-          <div class="wave wave--front"></div>
-        </div>
-      </div>
-
-      <div class="stop__body" id="beach-days-body">
-        <header class="stop__head">
-          <span class="stop__num">02</span>
-          <div>
-            <h2 class="stop__title">Beach Days</h2>
-            <p class="stop__tag">Coolers, tide charts, and a parking plan.</p>
-          </div>
-        </header>
-        <div class="stop__grid">
-          <div class="adventures" data-category="beachDays" aria-live="polite"></div>
-          <form class="add" data-category="beachDays">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Low Tide Loop" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
-        </div>
-        <div class="catmap-wrap">
-          <p class="catmap__title">The shoreline so far</p>
-          <div class="catmap" data-category="beachDays" data-vibe="beach"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CAMPING -->
-    <section class="stop stop--hero" id="camping" data-accent="pine">
-      <!-- Campfire landing: swap each .pola__img background for url('your-photo.jpg') -->
-      <div class="landing" data-vibe="camp">
-        <div class="landing__bg" aria-hidden="true"></div>
-        <div class="landing__glow" aria-hidden="true"></div>
-        <div class="landing__stars" aria-hidden="true">
-          <span class="star" style="top:12%;left:8%;"></span>
-          <span class="star" style="top:22%;left:22%;animation-delay:.4s;"></span>
-          <span class="star" style="top:8%;left:38%;animation-delay:.8s;"></span>
-          <span class="star" style="top:28%;left:52%;animation-delay:1.2s;"></span>
-          <span class="star" style="top:14%;left:68%;animation-delay:.6s;"></span>
-          <span class="star" style="top:24%;left:86%;animation-delay:1s;"></span>
-        </div>
-        <div class="landing__inner">
-          <div class="landing__copy">
-            <p class="landing__eyebrow">03 · Camping</p>
-            <h2 class="landing__title"><span class="w">Pitch</span> <span class="w">it.</span><br /><span class="w">Light</span> <span class="w">the&nbsp;fire.</span></h2>
-            <p class="landing__lede">Pick the site, split the firewood, let the phone battery die for once. This is the slow one — fire, stars, and whoever tells the best story wins.</p>
-            <a href="#camping-body" class="btn btn--solid btn--lg landing__cta">Pick a site →</a>
-          </div>
-          <div class="landing__photos landing__photos--pola" aria-label="Photos from past camping trips">
-            <figure class="pola pola--1"><div class="pola__img">photo</div><figcaption class="pola__cap">first fire of the trip</figcaption></figure>
-            <figure class="pola pola--2"><div class="pola__img">photo</div><figcaption class="pola__cap">tent, barely level</figcaption></figure>
-            <figure class="pola pola--3"><div class="pola__img">photo</div><figcaption class="pola__cap">too many marshmallows</figcaption></figure>
-            <figure class="pola pola--4"><div class="pola__img">photo</div><figcaption class="pola__cap">quiet, finally</figcaption></figure>
-          </div>
-        </div>
-        <div class="strip strip--tree" aria-hidden="true"></div>
-      </div>
-
-      <div class="stop__body" id="camping-body">
-        <header class="stop__head">
-          <span class="stop__num">03</span>
-          <div>
-            <h2 class="stop__title">Camping</h2>
-            <p class="stop__tag">Book the site early, split the firewood.</p>
-          </div>
-        </header>
-        <div class="stop__grid">
-          <div class="adventures" data-category="camping" aria-live="polite"></div>
-          <form class="add" data-category="camping">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Lakeside Weekend" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
-        </div>
-        <div class="catmap-wrap">
-          <p class="catmap__title">The trail to camp</p>
-          <div class="catmap" data-category="camping" data-vibe="camp"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- HIKING -->
-    <section class="stop stop--hero" id="hiking" data-accent="clay">
-      <!-- Dawn ridge landing: swap each .pola__img background for url('your-photo.jpg') -->
-      <div class="landing" data-vibe="hike">
-        <div class="landing__bg" aria-hidden="true"></div>
-        <div class="landing__glow" aria-hidden="true"></div>
-        <div class="landing__inner">
-          <div class="landing__copy">
-            <p class="landing__eyebrow">04 · Hiking</p>
-            <h2 class="landing__title"><span class="w">Switchbacks.</span><br /><span class="w">Summit</span> <span class="w">views.</span></h2>
-            <p class="landing__lede">Mileage that sounds reasonable until mile four. Pack the water, argue about the pace, and let the view at the top settle it.</p>
-            <a href="#hiking-body" class="btn btn--solid btn--lg landing__cta">Hit the trail →</a>
-          </div>
-          <div class="landing__photos landing__photos--pola" aria-label="Photos from past hikes">
-            <figure class="pola pola--1"><div class="pola__img">photo</div><figcaption class="pola__cap">the last switchback</figcaption></figure>
-            <figure class="pola pola--2"><div class="pola__img">photo</div><figcaption class="pola__cap">worth the elevation gain</figcaption></figure>
-            <figure class="pola pola--3"><div class="pola__img">photo</div><figcaption class="pola__cap">someone forgot water</figcaption></figure>
-            <figure class="pola pola--4"><div class="pola__img">photo</div><figcaption class="pola__cap">summit snacks</figcaption></figure>
-          </div>
-        </div>
-        <div class="strip strip--ridge" aria-hidden="true"><span class="strip__mover">🚶</span></div>
-      </div>
-
-      <div class="stop__body" id="hiking-body">
-        <header class="stop__head">
-          <span class="stop__num">04</span>
-          <div>
-            <h2 class="stop__title">Hiking</h2>
-            <p class="stop__tag">Mileage, elevation, and who's bringing water.</p>
-          </div>
-        </header>
-        <div class="stop__grid">
-          <div class="adventures" data-category="hiking" aria-live="polite"></div>
-          <form class="add" data-category="hiking">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Ridge Runners" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
-        </div>
-        <div class="catmap-wrap">
-          <p class="catmap__title">The trail so far</p>
-          <div class="catmap" data-category="hiking" data-vibe="hike"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- EVENTS -->
-    <section class="stop stop--hero" id="events" data-accent="plum">
-      <!-- Night-out landing: photos come from js/photos.js -->
-      <div class="landing" data-vibe="event">
-        <div class="landing__bg" aria-hidden="true"></div>
-        <div class="landing__glow" aria-hidden="true"></div>
-        <div class="landing__stars" aria-hidden="true">
-          <span class="star" style="top:10%;left:12%;"></span>
-          <span class="star" style="top:26%;left:30%;animation-delay:.5s;"></span>
-          <span class="star" style="top:9%;left:56%;animation-delay:.9s;"></span>
-          <span class="star" style="top:22%;left:74%;animation-delay:.3s;"></span>
-          <span class="star" style="top:15%;left:90%;animation-delay:1.1s;"></span>
-        </div>
-        <div class="landing__inner">
-          <div class="landing__copy">
-            <p class="landing__eyebrow">05 · Events</p>
-            <h2 class="landing__title"><span class="w">Say</span> <span class="w">yes.</span><br /><span class="w">Figure</span> <span class="w">it&nbsp;out&nbsp;later.</span></h2>
-            <p class="landing__lede">Concerts, birthdays, pop-up plans — the stuff that doesn't fit a category but absolutely needs a headcount and a meeting spot.</p>
-            <a href="#events-body" class="btn btn--solid btn--lg landing__cta">Count me in →</a>
-          </div>
-          <div class="landing__photos landing__photos--pola" aria-label="Photos from past events">
-            <figure class="pola pola--1"><div class="pola__img">photo</div><figcaption class="pola__cap">front row, almost</figcaption></figure>
-            <figure class="pola pola--2"><div class="pola__img">photo</div><figcaption class="pola__cap">last-minute tickets</figcaption></figure>
-            <figure class="pola pola--3"><div class="pola__img">photo</div><figcaption class="pola__cap">birthday chaos</figcaption></figure>
-            <figure class="pola pola--4"><div class="pola__img">photo</div><figcaption class="pola__cap">the encore</figcaption></figure>
-          </div>
-        </div>
-        <div class="strip strip--city" aria-hidden="true"><span class="strip__mover">🚕</span></div>
-      </div>
-
-      <div class="stop__body" id="events-body">
-        <header class="stop__head">
-          <span class="stop__num">05</span>
-          <div>
-            <h2 class="stop__title">Events</h2>
-            <p class="stop__tag">Concerts, birthdays, and whatever else comes up.</p>
-          </div>
-        </header>
-        <div class="stop__grid">
-          <div class="adventures" data-category="events" aria-live="polite"></div>
-          <form class="add" data-category="events">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Concert Night" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
-        </div>
-        <div class="catmap-wrap">
-          <p class="catmap__title">The lineup so far</p>
-          <div class="catmap" data-category="events" data-vibe="event"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- COST OVERVIEW -->
-    <section class="stop stop--wide" id="calculator" data-accent="amber">
-      <header class="stop__head">
-        <span class="stop__num">R</span>
-        <div>
-          <h2 class="stop__title">Split the costs</h2>
-          <p class="stop__tag">Every adventure's total and who owes what — updates itself as you plan.</p>
-        </div>
-      </header>
-
-      <div class="calc">
-        <label class="calc__trip">
-          Trip name
-          <input type="text" id="tripName" placeholder="Big weekend away" />
+  <main class="wrap">
+    <form class="panel" id="newTripForm" hidden>
+      <h2>New trip</h2>
+      <div class="form-row">
+        <label class="field">Title
+          <input name="title" placeholder="Route 62 drive" required maxlength="80" />
         </label>
-        <p class="overview__hint">Costs live inside each adventure — add petrol, tickets, and groceries up there, pick who's coming, and this table does the math.</p>
-        <div class="overview" id="overview" aria-live="polite"></div>
+        <label class="field">Category
+          <select name="category" id="newTripCategory" required></select>
+        </label>
+        <label class="field">Date
+          <input name="date" type="date" />
+        </label>
+        <button class="btn btn--solid" type="submit">Create</button>
       </div>
+    </form>
+
+    <section>
+      <h2 class="board__section-title">Upcoming adventures</h2>
+      <div class="board__grid" id="upcomingGrid"></div>
     </section>
 
-    <!-- ROADMAP -->
-    <section class="stop stop--wide" id="roadmap" data-accent="teal">
-      <header class="stop__head">
-        <span class="stop__num">◎</span>
-        <div>
-          <h2 class="stop__title">The Roadmap</h2>
-          <p class="stop__tag">One shareable page with every adventure, every stop, and the maps to match.</p>
-        </div>
-      </header>
-      <div class="roadmap-cta">
-        <button class="btn btn--solid btn--lg" id="roadmapBtn">Generate roadmap ✨</button>
-        <span class="roadmap__hint">Opens in a new tab — use “Download this page” there to save &amp; share it.</span>
-      </div>
-    </section>
-
-    <!-- GUIDE -->
-    <section class="stop stop--wide" id="guide" data-accent="pine">
-      <header class="stop__head">
-        <span class="stop__num">⇅</span>
-        <div>
-          <h2 class="stop__title">Saving &amp; loading your plan</h2>
-          <p class="stop__tag">No accounts, no cloud — the whole plan lives in one small file you keep.</p>
-        </div>
-      </header>
-      <div class="guide">
-        <ol class="guide__steps">
-          <li><strong>Save plan</strong> (top right) downloads <code>tpc-adventures-plan.json</code> — everything on this page in one file.</li>
-          <li><strong>Keep it where the crew can find it</strong> — the group chat, a shared Drive, anywhere.</li>
-          <li><strong>Load plan</strong> brings it all back — on any device, in any browser.</li>
-        </ol>
-        <div class="guide__grid">
-          <article class="guide__card">
-            <span class="guide__icon" aria-hidden="true">💻</span>
-            <h3>Laptop</h3>
-            <ul>
-              <li><strong>Save</strong> → the file lands in your <strong>Downloads</strong> folder.</li>
-              <li><strong>Load</strong> → a file picker opens; grab <code>tpc-adventures-plan.json</code>.</li>
-              <li>Tip: drag the file straight into the group chat to share the latest version.</li>
-            </ul>
-          </article>
-          <article class="guide__card">
-            <span class="guide__icon" aria-hidden="true">📱</span>
-            <h3>iPhone &amp; iPad</h3>
-            <ul>
-              <li>Safari asks <em>“Do you want to download?”</em>, then shows a blue ↓ by the address bar.</li>
-              <li>The file lives in the <strong>Files app → Downloads</strong>.</li>
-              <li><strong>Load</strong> → tap <em>Choose File → Browse → Downloads</em> and pick it.</li>
-            </ul>
-          </article>
-          <article class="guide__card">
-            <span class="guide__icon" aria-hidden="true">🤖</span>
-            <h3>Android</h3>
-            <ul>
-              <li>Chrome shows a download bar at the bottom when you hit <strong>Save</strong>.</li>
-              <li>Find the file in <strong>Downloads</strong> (or the Files app).</li>
-              <li><strong>Load</strong> → the picker opens; check <em>Recent</em> or <em>Downloads</em>.</li>
-            </ul>
-          </article>
-        </div>
-        <p class="guide__note">
-          The file is tiny — send it in the group chat and anyone can load it. Heads-up:
-          loading a file replaces what's on screen, so hit <em>Save plan</em> first if you've
-          made changes you want to keep.
-        </p>
-      </div>
+    <section>
+      <details id="pastSection">
+        <summary class="board__section-title" style="cursor:pointer; display:list-item;">Past adventures</summary>
+        <div class="board__grid" id="pastGrid"></div>
+      </details>
     </section>
   </main>
 
-  <footer class="foot">
-    <p class="foot__mark">TPC Young Adult Adventures</p>
-    <p class="foot__note">
-      Your plan lives in a file, not on a server. Hit <em>Save plan</em> to download it,
-      <em>Load plan</em> to bring it back.
-    </p>
-  </footer>
-
-  <!-- main.js runs last; everything else just registers globals -->
-  <script src="js/photos.js"></script>
-  <script src="js/music.js"></script>
-  <script src="js/maps.js"></script>
-  <script src="js/roadmap.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/board.js"></script>
 </body>
 </html>
