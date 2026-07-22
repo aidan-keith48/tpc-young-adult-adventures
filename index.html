@@ -33,6 +33,7 @@
       TPC Young Adult Adventures
     </a>
     <nav class="nav__links" aria-label="Sections">
+      <a href="#all-adventures">Coming up</a>
       <a href="#crew">Crew</a>
       <a href="#road-trips">Road Trips</a>
       <a href="#beach-days">Beach Days</a>
@@ -44,11 +45,114 @@
       <a href="#guide">Guide</a>
     </nav>
     <div class="nav__data">
-      <button class="btn btn--ghost" id="importBtn">Load plan</button>
-      <button class="btn btn--solid" id="exportBtn">Save plan</button>
+      <button class="btn btn--ghost" id="importBtn">Restore</button>
+      <button class="btn btn--ghost" id="exportBtn">Backup</button>
+      <button class="btn btn--solid" id="syncBtn" type="button" hidden>Start syncing</button>
       <input type="file" id="importFile" accept="application/json" hidden />
     </div>
   </header>
+
+  <!-- Shown only on a synced crew link (or when a link has expired) -->
+  <p class="sync-banner" id="syncBanner" hidden></p>
+
+  <!-- ============ CREW NAME DIALOG (start syncing) ============ -->
+  <dialog id="crewNameDialog">
+    <form id="crewNameForm">
+      <h2>Start syncing</h2>
+      <p class="dialog__hint">Everything on this page moves to a live shared link — whoever has it sees the same plan and can edit it. Give the crew a name the group will recognize.</p>
+      <label>Crew name
+        <input name="name" id="crewNameInput" placeholder="TPC Young Adults" value="TPC Young Adults" maxlength="80" required />
+      </label>
+      <div class="dialog__actions">
+        <button class="btn btn--ghost" id="crewNameCancel" type="button">Cancel</button>
+        <button class="btn btn--solid" type="submit">Create the link</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ ADVENTURE EDITOR DIALOG (create + edit) ============ -->
+  <dialog id="advDialog">
+    <div class="advd">
+      <h2 id="advDialogTitle">Create adventure</h2>
+
+      <div class="advd__row">
+        <label class="advd__name">Adventure name
+          <input id="advName" placeholder="Golden Route Adventure" maxlength="80" />
+        </label>
+        <label>Date <span class="advd__opt">(optional)</span>
+          <input id="advDate" type="date" />
+        </label>
+      </div>
+
+      <h3 class="adventure__subtitle">Stops</h3>
+      <div class="advd__stops" id="advStops"></div>
+      <form class="adventure__addstop" id="advStopForm">
+        <label>Activity <input name="name" placeholder="Stop name" maxlength="120" /></label>
+        <label>Time <input name="time" placeholder="6:30 PM" maxlength="40" /></label>
+        <label>Price (R) <input name="price" type="number" min="0" max="1000000" step="1" placeholder="0" /></label>
+        <label>Location <input name="location" placeholder="Address or landmark" maxlength="200" /></label>
+        <label>Directions link <input name="link" type="url" placeholder="https://maps.app.goo.gl/…" maxlength="500" /></label>
+        <label>Meeting point <input name="meetingPoint" placeholder="Where to meet up" maxlength="200" /></label>
+        <label>What to bring <input name="whatToBring" placeholder="Snacks, sunscreen…" maxlength="300" /></label>
+        <label class="adventure__addstop-notes">Notes <textarea name="notes" rows="2" placeholder="Anything else worth remembering" maxlength="1000"></textarea></label>
+        <button class="btn btn--ghost" type="submit">＋ Add this stop</button>
+      </form>
+
+      <h3 class="adventure__subtitle">Who's coming</h3>
+      <div class="adventure__chips" id="advChips"></div>
+      <div class="adventure__addperson" id="advAddPerson"></div>
+
+      <h3 class="adventure__subtitle">Shared costs</h3>
+      <div class="adventure__costrows" id="advCosts"></div>
+      <form class="adventure__addcost" id="advCostForm">
+        <input name="label" placeholder="Petrol, tickets…" maxlength="80" />
+        <input name="amount" type="number" min="0" max="1000000" step="0.01" placeholder="0.00" />
+        <button class="btn btn--ghost" type="submit">＋ Add cost</button>
+      </form>
+
+      <p class="adventure__money" id="advMoney"></p>
+      <p class="advd__error" id="advError" hidden></p>
+
+      <div class="dialog__actions">
+        <button class="btn btn--ghost" id="advCancel" type="button">Cancel</button>
+        <button class="btn btn--solid" id="advSave" type="button">Save adventure</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============ MESSAGE DIALOG (in-app alert / confirm) ============ -->
+  <dialog id="msgDialog">
+    <div class="msg">
+      <h2 id="msgTitle">Heads up</h2>
+      <p class="dialog__hint" id="msgBody"></p>
+      <input id="msgInput" class="msg__input" readonly hidden />
+      <div class="dialog__actions">
+        <button class="btn btn--ghost" id="msgCancel" type="button" hidden>Cancel</button>
+        <button class="btn btn--solid" id="msgOk" type="button">OK</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============ SAFETY NOTICE (first visit) ============ -->
+  <dialog id="safetyDialog">
+    <div class="msg">
+      <h2>Quick heads-up 🛡️</h2>
+      <p class="dialog__hint">
+        This site will <strong>never</strong> ask you for passwords, banking details,
+        money, or personal information — and it will never send you a link asking you
+        to "log in" or "verify" anything. If something on a shared plan ever asks for
+        those, don't enter them — tell the group.
+      </p>
+      <p class="dialog__hint">
+        Plans are shared with a secret crew link: anyone who has it can view and edit,
+        so only share it in the group chat, and keep addresses and payment details out
+        of the plan itself.
+      </p>
+      <div class="dialog__actions">
+        <button class="btn btn--solid" id="safetyOk" type="button">Got it 👍</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- ============ HERO / COLLAGE ============ -->
   <section class="hero">
@@ -146,6 +250,18 @@
   <!-- ============ ROUTE: the sections are stops on a line ============ -->
   <main class="route">
 
+    <!-- WHAT'S COMING UP (every adventure, all categories) -->
+    <section class="stop stop--wide" id="all-adventures">
+      <header class="stop__head">
+        <span class="stop__num">✦</span>
+        <div>
+          <h2 class="stop__title">What's coming up</h2>
+          <p class="stop__tag">Every plan on the books — road trips to random events, soonest first.</p>
+        </div>
+      </header>
+      <div class="tripgrid" id="tripGrid" aria-live="polite"></div>
+    </section>
+
     <!-- CREW -->
     <section class="stop" id="crew" data-accent="teal">
       <header class="stop__head">
@@ -159,8 +275,8 @@
         <div class="crew__chips" id="crewChips" aria-live="polite"></div>
         <form class="add" id="crewForm">
           <h3 class="add__title">Add a person</h3>
-          <label>First name <input name="firstName" placeholder="Naledi" required /></label>
-          <label>Surname <input name="lastName" placeholder="Mokoena" /></label>
+          <label>First name <input name="firstName" placeholder="Naledi" required maxlength="30" /></label>
+          <label>Surname <input name="lastName" placeholder="Mokoena" maxlength="29" /></label>
           <button class="btn btn--solid" type="submit">Add to crew</button>
         </form>
       </div>
@@ -197,13 +313,10 @@
             <p class="stop__tag">Long drives, good playlists, petrol-money math.</p>
           </div>
         </header>
-        <div class="stop__grid">
+        <div class="adv-zone">
+          <p class="adv-zone__title">Upcoming road trips</p>
           <div class="adventures" data-category="roadTrips" aria-live="polite"></div>
-          <form class="add" data-category="roadTrips">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Golden Route Adventure" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
+          <button class="btn btn--solid adv-create" data-category="roadTrips" type="button">＋ Create adventure</button>
         </div>
         <div class="catmap-wrap">
           <p class="catmap__title">The route so far</p>
@@ -248,13 +361,10 @@
             <p class="stop__tag">Coolers, tide charts, and a parking plan.</p>
           </div>
         </header>
-        <div class="stop__grid">
+        <div class="adv-zone">
+          <p class="adv-zone__title">Upcoming beach days</p>
           <div class="adventures" data-category="beachDays" aria-live="polite"></div>
-          <form class="add" data-category="beachDays">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Low Tide Loop" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
+          <button class="btn btn--solid adv-create" data-category="beachDays" type="button">＋ Create adventure</button>
         </div>
         <div class="catmap-wrap">
           <p class="catmap__title">The shoreline so far</p>
@@ -302,13 +412,10 @@
             <p class="stop__tag">Book the site early, split the firewood.</p>
           </div>
         </header>
-        <div class="stop__grid">
+        <div class="adv-zone">
+          <p class="adv-zone__title">Upcoming campouts</p>
           <div class="adventures" data-category="camping" aria-live="polite"></div>
-          <form class="add" data-category="camping">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Lakeside Weekend" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
+          <button class="btn btn--solid adv-create" data-category="camping" type="button">＋ Create adventure</button>
         </div>
         <div class="catmap-wrap">
           <p class="catmap__title">The trail to camp</p>
@@ -348,13 +455,10 @@
             <p class="stop__tag">Mileage, elevation, and who's bringing water.</p>
           </div>
         </header>
-        <div class="stop__grid">
+        <div class="adv-zone">
+          <p class="adv-zone__title">Upcoming hikes</p>
           <div class="adventures" data-category="hiking" aria-live="polite"></div>
-          <form class="add" data-category="hiking">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Ridge Runners" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
+          <button class="btn btn--solid adv-create" data-category="hiking" type="button">＋ Create adventure</button>
         </div>
         <div class="catmap-wrap">
           <p class="catmap__title">The trail so far</p>
@@ -401,13 +505,10 @@
             <p class="stop__tag">Concerts, birthdays, and whatever else comes up.</p>
           </div>
         </header>
-        <div class="stop__grid">
+        <div class="adv-zone">
+          <p class="adv-zone__title">Upcoming events</p>
           <div class="adventures" data-category="events" aria-live="polite"></div>
-          <form class="add" data-category="events">
-            <h3 class="add__title">Start an adventure</h3>
-            <label>Adventure name <input name="name" placeholder="Concert Night" required /></label>
-            <button class="btn btn--solid" type="submit">Create adventure</button>
-          </form>
+          <button class="btn btn--solid adv-create" data-category="events" type="button">＋ Create adventure</button>
         </div>
         <div class="catmap-wrap">
           <p class="catmap__title">The lineup so far</p>
@@ -429,7 +530,7 @@
       <div class="calc">
         <label class="calc__trip">
           Trip name
-          <input type="text" id="tripName" placeholder="Big weekend away" />
+          <input type="text" id="tripName" placeholder="Big weekend away" maxlength="80" />
         </label>
         <p class="overview__hint">Costs live inside each adventure — add petrol, tickets, and groceries up there, pick who's coming, and this table does the math.</p>
         <div class="overview" id="overview" aria-live="polite"></div>
@@ -461,18 +562,29 @@
         </div>
       </header>
       <div class="guide">
+        <div class="guide__sync">
+          <h3>The live link (the easy way)</h3>
+          <p>
+            Hit <strong>Start syncing</strong> (top right), name the crew, and you'll land on a
+            special link — <em>that link is the plan</em>. Drop it in the group chat: everyone who
+            opens it sees the same adventures and can edit them, live, from any device. No accounts,
+            no passwords. Two things to know: <strong>anyone with the link can edit or delete
+            anything</strong> (deletions are kept recoverable behind the scenes), so don't post it
+            publicly — and don't put home addresses or payment details in the plan.
+          </p>
+        </div>
         <ol class="guide__steps">
-          <li><strong>Save plan</strong> (top right) downloads <code>tpc-adventures-plan.json</code> — everything on this page in one file.</li>
+          <li><strong>Backup</strong> (top right) downloads <code>tpc-adventures-plan.json</code> — everything on this page in one file.</li>
           <li><strong>Keep it where the crew can find it</strong> — the group chat, a shared Drive, anywhere.</li>
-          <li><strong>Load plan</strong> brings it all back — on any device, in any browser.</li>
+          <li><strong>Restore</strong> brings it all back — on any device, in any browser.</li>
         </ol>
         <div class="guide__grid">
           <article class="guide__card">
             <span class="guide__icon" aria-hidden="true">💻</span>
             <h3>Laptop</h3>
             <ul>
-              <li><strong>Save</strong> → the file lands in your <strong>Downloads</strong> folder.</li>
-              <li><strong>Load</strong> → a file picker opens; grab <code>tpc-adventures-plan.json</code>.</li>
+              <li><strong>Backup</strong> → the file lands in your <strong>Downloads</strong> folder.</li>
+              <li><strong>Restore</strong> → a file picker opens; grab <code>tpc-adventures-plan.json</code>.</li>
               <li>Tip: drag the file straight into the group chat to share the latest version.</li>
             </ul>
           </article>
@@ -482,23 +594,24 @@
             <ul>
               <li>Safari asks <em>“Do you want to download?”</em>, then shows a blue ↓ by the address bar.</li>
               <li>The file lives in the <strong>Files app → Downloads</strong>.</li>
-              <li><strong>Load</strong> → tap <em>Choose File → Browse → Downloads</em> and pick it.</li>
+              <li><strong>Restore</strong> → tap <em>Choose File → Browse → Downloads</em> and pick it.</li>
             </ul>
           </article>
           <article class="guide__card">
             <span class="guide__icon" aria-hidden="true">🤖</span>
             <h3>Android</h3>
             <ul>
-              <li>Chrome shows a download bar at the bottom when you hit <strong>Save</strong>.</li>
+              <li>Chrome shows a download bar at the bottom when you hit <strong>Backup</strong>.</li>
               <li>Find the file in <strong>Downloads</strong> (or the Files app).</li>
-              <li><strong>Load</strong> → the picker opens; check <em>Recent</em> or <em>Downloads</em>.</li>
+              <li><strong>Restore</strong> → the picker opens; check <em>Recent</em> or <em>Downloads</em>.</li>
             </ul>
           </article>
         </div>
         <p class="guide__note">
-          The file is tiny — send it in the group chat and anyone can load it. Heads-up:
-          loading a file replaces what's on screen, so hit <em>Save plan</em> first if you've
-          made changes you want to keep.
+          The file is tiny — send it in the group chat and anyone can restore it. Heads-up:
+          restoring a file replaces what's on screen, so hit <em>Backup</em> first if you've
+          made changes you want to keep. On a live crew link, backups double as snapshots you
+          can keep before big edits.
         </p>
       </div>
     </section>
@@ -507,14 +620,20 @@
   <footer class="foot">
     <p class="foot__mark">TPC Young Adult Adventures</p>
     <p class="foot__note">
-      Your plan lives in a file, not on a server. Hit <em>Save plan</em> to download it,
-      <em>Load plan</em> to bring it back.
+      Share the crew link and the whole group plans together, live. Or keep it simple:
+      <em>Backup</em> downloads the plan as a file, <em>Restore</em> brings it back.
     </p>
   </footer>
 
-  <!-- main.js runs last; everything else just registers globals -->
+  <!-- main.js runs last; everything else just registers globals.
+       Firebase SDK + db.js power the optional live sync (?crew= links). -->
   <script src="js/photos.js"></script>
   <script src="js/music.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
+  <script src="js/db.js"></script>
   <script src="js/maps.js"></script>
   <script src="js/roadmap.js"></script>
   <script src="js/audio.js"></script>

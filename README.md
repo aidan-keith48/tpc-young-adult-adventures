@@ -77,6 +77,34 @@ self-contained page with every adventure, map, and detail. It opens in a new
 tab; use its **Download this page** button to save `roadmap.html` and share it
 with the group.
 
+## Locking it down (one crew only)
+
+There's no way for anyone — including the site itself — to list or count crews;
+the Firebase rules deny reading the `crews` index entirely, which is exactly what
+keeps strangers from finding your link. So "no new crews once ours exists" is done
+in the **Firebase console rules**, where the code stays private:
+
+1. Create your crew once (Start syncing) and copy the code from the URL
+   (everything after `?crew=`).
+2. In the Firebase console → Realtime Database → Rules, inside
+   `"crews": { "$crewCode": {`, change `".write": true` to:
+   ```json
+   ".write": "data.exists() || $crewCode === 'YOUR-CREW-CODE-HERE'"
+   ```
+   Existing crews stay editable; creating any new crew code is rejected —
+   even for someone calling Firebase directly. Link rotation creates a new
+   code, so update this rule first if you ever rotate.
+
+⚠️ **Never put the real crew code in this repo** (including `lockedCrewCode`
+in `js/config.js`) if the repo or site is public — the code is the password,
+and anyone reading the file could open the live plan. Share the `?crew=` link
+in the group chat only. `lockedCrewCode` exists for private deployments.
+
+**What's safe in a public repo:** the Firebase client config in `js/config.js`
+(apiKey, databaseURL, …) is not a secret — it ships to every browser anyway and
+grants no access by itself; the database rules are the only real boundary. The
+crew code is the one thing that must stay out.
+
 ## Save / load plans
 
 - **Save plan** downloads everything (crew + adventures + costs) as `tpc-adventures-plan.json`.

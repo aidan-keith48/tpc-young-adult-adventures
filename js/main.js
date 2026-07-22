@@ -1,45 +1,35 @@
 /* =========================================================
-   main.js — holds the whole plan (adventures → stops per
-   category), renders it, applies photo links, and handles
-   JSON save/load. Runs last so it can call Calculator,
-   CategoryMaps, and Roadmap (all loaded before it).
+   main.js — renders the whole one-page planner. All data now
+   lives behind TrailheadDB (js/db.js): local scratchpad by
+   default, or Firebase live-sync when the URL carries a
+   ?crew= link. `plan` below is a READ-MODEL assembled from
+   DB listeners — render functions read it, but every
+   mutation goes through TrailheadDB and comes back via a
+   listener. Runs last so all globals exist.
    ========================================================= */
 (function () {
   const CATEGORIES = ["roadTrips", "beachDays", "camping", "hiking", "events"];
   const CAT_LABELS = { roadTrips: "Road Trips", beachDays: "Beach Days", camping: "Camping", hiking: "Hiking", events: "Events" };
+  const DB = window.TrailheadDB;
 
-  // The single source of truth for the page. Save/Load round-trips this.
-  // Each category holds adventures; each adventure holds stops, an attendee
-  // list (ids from plan.people), and its own shared costs.
+  // Assembled read-model. Adventures carry their DB trip id; stops/costs
+  // carry their DB ids; attendees is an array of crew-roster person ids.
   const plan = {
     meta: { app: "TPC Young Adult Adventures", version: 3, tripName: "" },
-    people: [
-      { id: "p1", name: "Naledi Mokoena" },
-      { id: "p2", name: "Josh van Wyk" },
-    ],
-    categories: {
-      roadTrips: [{ name: "Coast Highway Run", attendees: ["p1", "p2"], costs: [{ label: "Petrol", amount: 600 }], stops: [
-        { name: "Sunset overlook, mile 88", time: "", price: 450, location: "", meetingPoint: "", whatToBring: "", link: "", notes: "" },
-      ] }],
-      beachDays: [{ name: "Low Tide Loop", attendees: [], costs: [], stops: [
-        { name: "Tide pools at low tide", time: "", price: 0, location: "", meetingPoint: "", whatToBring: "", link: "", notes: "" },
-      ] }],
-      camping: [{ name: "Lakeside Weekend", attendees: [], costs: [], stops: [
-        { name: "Two nights, lakeside site", time: "", price: 950, location: "", meetingPoint: "", whatToBring: "", link: "", notes: "" },
-      ] }],
-      hiking: [{ name: "Ridge Runners", attendees: [], costs: [], stops: [
-        { name: "Ridge loop — 6.2 mi", time: "", price: 120, location: "", meetingPoint: "", whatToBring: "", link: "", notes: "" },
-      ] }],
-      events: [{ name: "Concert Night", attendees: ["p1", "p2"], costs: [], stops: [
-        { name: "Indie show at the amphitheatre", time: "7:00 PM", price: 350, location: "", meetingPoint: "", whatToBring: "", link: "", notes: "" },
-      ] }],
-    },
+    people: [],
+    categories: { roadTrips: [], beachDays: [], camping: [], hiking: [], events: [] },
   };
 
-  let nextPersonId = 3;
+  let syncMode = "local";
+  let tripsIndex = [];          // latest light trip list from DB.onTrips
+  const tripDataCache = {};     // tripId -> { stops, costs, attendees(ids) }
+  const tripDataUnsubs = {};    // tripId -> unsubscribe fn
 
   const money = (n) =>
     "R" + Number(n || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Amounts stay inside what the sync rules accept (0 … R1 000 000).
+  const clampMoney = (v) => Math.min(1000000, Math.max(0, Number(v) || 0));
 
   // Everything is a group cost split evenly: stops + shared costs, over attendees.
   function advTotals(adv) {
@@ -50,187 +40,164 @@
     return { stopsSum, costsSum, total, n, per: n > 0 ? total / n : 0 };
   }
 
+  /* ---------- Dates ---------- */
+  function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  const isPast = (iso) => Boolean(iso) && iso < todayISO();
+  function fmtDate(iso) {
+    const d = new Date(iso + "T12:00:00");
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
+  }
+
+  // Soonest-dated first, then undated, then past (most recent past first).
+  function advSort(a, b) {
+    const rank = (x) => (!x.date ? 1 : isPast(x.date) ? 2 : 0);
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 0) return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+    if (ra === 2) return a.date > b.date ? -1 : a.date < b.date ? 1 : 0;
+    return 0;
+  }
+
   /* ---------- Render one category's list of adventures ---------- */
+  const EMPTY_LINES = {
+    roadTrips: "Nothing on the calendar yet — the road's wide open.",
+    beachDays: "No beach days booked — the tide's waiting.",
+    camping: "No campouts planned — the stars are patient.",
+    hiking: "No hikes lined up — the trail's not going anywhere.",
+    events: "Nothing on the books — someone find the plans.",
+  };
+
   function renderCategory(key) {
     const container = document.querySelector(`.adventures[data-category="${key}"]`);
-    const adventures = plan.categories[key] || [];
+    const adventures = (plan.categories[key] || []).slice().sort(advSort);
     if (container) {
       container.innerHTML = "";
       if (adventures.length === 0) {
-        container.innerHTML = '<p class="cards__empty">No adventures yet — start your first one.</p>';
+        container.innerHTML = `<p class="adv-empty">${EMPTY_LINES[key]}</p>`;
       } else {
-        adventures.forEach((adventure, ai) => {
-          container.appendChild(buildAdventureCard(key, adventure, ai));
+        adventures.forEach((adventure) => {
+          container.appendChild(buildAdventureCard(key, adventure));
         });
       }
     }
     if (window.CategoryMaps) window.CategoryMaps.update(key, adventures);
     renderOverview();
+    renderGlobal();
   }
 
-  function buildAdventureCard(key, adventure, ai) {
-    adventure.attendees = adventure.attendees || [];
-    adventure.costs = adventure.costs || [];
+  /* ---------- Adventure display card (read-only + Edit) ---------- */
+  function buildAdventureCard(key, adventure) {
     const t = advTotals(adventure);
+    const past = isPast(adventure.date);
 
     const card = document.createElement("div");
-    card.className = "adventure";
+    card.className = "adventure adventure--card" + (past ? " adventure--past" : "");
     card.innerHTML = `
       <header class="adventure__head">
         <div>
           <h4 class="adventure__name"></h4>
           <p class="adventure__meta"></p>
         </div>
-        <button class="adventure__del" type="button" aria-label="Remove adventure">✕</button>
+        <div class="adventure__btns">
+          <button class="btn btn--ghost btn--sm adventure__edit" type="button">Edit</button>
+          <button class="adventure__del" type="button" aria-label="Remove adventure">✕</button>
+        </div>
       </header>
+      <p class="adventure__going"></p>
       <div class="adventure__stops"></div>
-      <div class="adventure__people">
-        <h5 class="adventure__subtitle">Who's coming</h5>
-        <div class="adventure__chips"></div>
-        <div class="adventure__addperson"></div>
-      </div>
-      <div class="adventure__costs">
-        <h5 class="adventure__subtitle">Shared costs</h5>
-        <div class="adventure__costrows"></div>
-        <form class="adventure__addcost">
-          <input name="label" placeholder="Petrol, tickets…" required />
-          <input name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
-          <button class="btn btn--solid" type="submit">Add</button>
-        </form>
-        <p class="adventure__money"></p>
-      </div>
-      <form class="adventure__addstop">
-        <label>Activity <input name="name" placeholder="Stop name" required /></label>
-        <label>Time <input name="time" placeholder="6:30 PM" /></label>
-        <label>Price (R) <input name="price" type="number" min="0" step="1" placeholder="0" /></label>
-        <label>Location <input name="location" placeholder="Address or landmark" /></label>
-        <label>Directions link <input name="link" type="url" placeholder="https://maps.app.goo.gl/…" /></label>
-        <label>Meeting point <input name="meetingPoint" placeholder="Where to meet up" /></label>
-        <label>What to bring <input name="whatToBring" placeholder="Snacks, sunscreen…" /></label>
-        <label class="adventure__addstop-notes">Notes <textarea name="notes" rows="2" placeholder="Anything else worth remembering"></textarea></label>
-        <button class="btn btn--solid" type="submit">Add stop</button>
-      </form>`;
+      <div class="adventure__costrows"></div>
+      <p class="adventure__money"></p>`;
 
     card.querySelector(".adventure__name").textContent = adventure.name;
-    card.querySelector(".adventure__meta").textContent =
-      `${adventure.stops.length} stop${adventure.stops.length === 1 ? "" : "s"} · ` +
-      `${t.n} going · ${money(t.total)}`;
+    card.querySelector(".adventure__meta").textContent = [
+      adventure.date ? (past ? "past · " : "") + fmtDate(adventure.date) : null,
+      `${adventure.stops.length} stop${adventure.stops.length === 1 ? "" : "s"}`,
+      `${t.n} going`,
+    ].filter(Boolean).join(" · ");
+
+    card.querySelector(".adventure__edit").addEventListener("click", () => {
+      openAdvDialog(key, adventure);
+    });
     card.querySelector(".adventure__del").addEventListener("click", () => {
-      plan.categories[key].splice(ai, 1);
-      renderCategory(key);
+      UI.confirm(`Delete “${adventure.name}”? It stays recoverable behind the scenes.`, {
+        title: "Delete adventure", okText: "Delete",
+      }).then((ok) => { if (ok) DB.deleteTrip(adventure.id); });
     });
 
-    /* ---- stops ---- */
+    const going = card.querySelector(".adventure__going");
+    const names = adventure.attendees
+      .map((pid) => (plan.people.find((p) => p.id === pid) || {}).name)
+      .filter(Boolean);
+    if (names.length) going.textContent = "Going: " + names.join(", ");
+    else going.remove();
+
     const stopsWrap = card.querySelector(".adventure__stops");
     if (adventure.stops.length === 0) {
-      stopsWrap.innerHTML = '<p class="cards__empty">No stops yet — add the first one below.</p>';
+      stopsWrap.innerHTML = '<p class="cards__empty">No stops yet — hit Edit to add some.</p>';
     } else {
-      adventure.stops.forEach((stop, si) => {
-        stopsWrap.appendChild(buildStopCard(stop, () => {
-          adventure.stops.splice(si, 1);
-          renderCategory(key);
-        }));
-      });
+      adventure.stops.forEach((stop) => stopsWrap.appendChild(buildStopCard(stop)));
     }
 
-    /* ---- who's coming ---- */
-    const chipsWrap = card.querySelector(".adventure__chips");
-    adventure.attendees.forEach((pid) => {
-      const person = plan.people.find((p) => p.id === pid);
-      if (!person) return;
-      const chip = document.createElement("span");
-      chip.className = "chip chip--small";
-      const nameEl = document.createElement("span");
-      nameEl.textContent = person.name;
-      const del = document.createElement("button");
-      del.type = "button";
-      del.textContent = "✕";
-      del.setAttribute("aria-label", `Remove ${person.name} from this adventure`);
-      del.addEventListener("click", () => {
-        adventure.attendees = adventure.attendees.filter((id) => id !== pid);
-        renderCategory(key);
-      });
-      chip.append(nameEl, del);
-      chipsWrap.appendChild(chip);
-    });
-
-    const addPerson = card.querySelector(".adventure__addperson");
-    const remaining = plan.people.filter((p) => !adventure.attendees.includes(p.id));
-    if (plan.people.length === 0) {
-      addPerson.innerHTML = '<p class="adventure__hint">Add your people in <a href="#crew">The Crew</a> first, then pick who\'s coming here.</p>';
-    } else if (remaining.length === 0) {
-      addPerson.innerHTML = '<p class="adventure__hint">The whole crew is in ✓</p>';
-    } else {
-      const select = document.createElement("select");
-      select.setAttribute("aria-label", "Add someone to this adventure");
-      const ph = document.createElement("option");
-      ph.value = "";
-      ph.textContent = "Add someone…";
-      select.appendChild(ph);
-      remaining.forEach((p) => {
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = p.name;
-        select.appendChild(opt);
-      });
-      select.addEventListener("change", () => {
-        if (!select.value) return;
-        adventure.attendees.push(select.value);
-        renderCategory(key);
-      });
-      addPerson.appendChild(select);
-    }
-
-    /* ---- shared costs ---- */
     const costRows = card.querySelector(".adventure__costrows");
-    adventure.costs.forEach((cost, ci) => {
+    adventure.costs.forEach((cost) => {
       const row = document.createElement("div");
       row.className = "adventure__costrow";
-      row.innerHTML = `<span class="adventure__costlabel"></span>
-        <span class="adventure__costamount">${money(cost.amount)}</span>
-        <button type="button" aria-label="Remove cost">✕</button>`;
+      row.innerHTML = `<span class="adventure__costlabel"></span><span class="adventure__costamount">${money(cost.amount)}</span>`;
       row.querySelector(".adventure__costlabel").textContent = cost.label;
-      row.querySelector("button").addEventListener("click", () => {
-        adventure.costs.splice(ci, 1);
-        renderCategory(key);
-      });
       costRows.appendChild(row);
     });
 
-    card.querySelector(".adventure__addcost").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const data = new FormData(e.target);
-      const label = (data.get("label") || "").trim();
-      if (!label) return;
-      adventure.costs.push({ label, amount: Number(data.get("amount")) || 0 });
-      renderCategory(key);
-    });
-
-    const moneyLine = card.querySelector(".adventure__money");
-    moneyLine.innerHTML =
+    card.querySelector(".adventure__money").innerHTML =
       `Total ${money(t.total)} <small>(stops ${money(t.stopsSum)} + shared ${money(t.costsSum)})</small> · ` +
       (t.n > 0 ? `${money(t.per)} each` : `<small>add people to split</small>`);
 
-    /* ---- add stop ---- */
-    card.querySelector(".adventure__addstop").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const data = new FormData(e.target);
-      const name = (data.get("name") || "").trim();
-      if (!name) return;
-      adventure.stops.push({
-        name,
-        time: (data.get("time") || "").trim(),
-        price: Number(data.get("price")) || 0,
-        location: (data.get("location") || "").trim(),
-        link: (data.get("link") || "").trim(),
-        meetingPoint: (data.get("meetingPoint") || "").trim(),
-        whatToBring: (data.get("whatToBring") || "").trim(),
-        notes: (data.get("notes") || "").trim(),
-      });
-      renderCategory(key);
-    });
-
     return card;
+  }
+
+  /* ---------- Global "what's coming up" grid ---------- */
+  const SECTION_IDS = {
+    roadTrips: "road-trips-body", beachDays: "beach-days-body",
+    camping: "camping-body", hiking: "hiking-body", events: "events-body",
+  };
+
+  function renderGlobal() {
+    const grid = document.getElementById("tripGrid");
+    if (!grid) return;
+    const all = [];
+    CATEGORIES.forEach((k) => (plan.categories[k] || []).forEach((a) => all.push({ key: k, a })));
+    all.sort((x, y) => advSort(x.a, y.a));
+    grid.innerHTML = "";
+    if (all.length === 0) {
+      grid.innerHTML = '<p class="adv-empty">Nothing planned yet — scroll down and start the first adventure ↓</p>';
+      return;
+    }
+    all.forEach(({ key, a }) => {
+      const t = advTotals(a);
+      const past = isPast(a.date);
+      const card = document.createElement("a");
+      card.className = "tripcard" + (past ? " tripcard--past" : "");
+      card.dataset.cat = key;
+      card.href = `#${SECTION_IDS[key]}`;
+      card.innerHTML = `
+        <span class="tripcard__badge">${CAT_LABELS[key]}</span>
+        <span class="tripcard__name"></span>
+        <span class="tripcard__date"></span>
+        <span class="tripcard__meta"></span>
+        <span class="tripcard__stops"></span>`;
+      card.querySelector(".tripcard__name").textContent = a.name;
+      card.querySelector(".tripcard__date").textContent =
+        a.date ? (past ? "past · " : "") + fmtDate(a.date) : "date TBC";
+      card.querySelector(".tripcard__meta").textContent =
+        `${a.stops.length} stop${a.stops.length === 1 ? "" : "s"} · ${t.n} going · ${money(t.total)}`;
+      const preview = a.stops.slice(0, 2).map((s) => s.name).join(" · ");
+      card.querySelector(".tripcard__stops").textContent =
+        preview + (a.stops.length > 2 ? " · …" : "");
+      grid.appendChild(card);
+    });
   }
 
   /* ---------- Crew roster ---------- */
@@ -252,12 +219,7 @@
       del.textContent = "✕";
       del.setAttribute("aria-label", `Remove ${person.name} from the crew`);
       del.addEventListener("click", () => {
-        plan.people = plan.people.filter((p) => p.id !== person.id);
-        CATEGORIES.forEach((k) => (plan.categories[k] || []).forEach((a) => {
-          a.attendees = (a.attendees || []).filter((id) => id !== person.id);
-        }));
-        renderCrew();
-        renderAll();
+        DB.removePerson(person.id); // also drops them from every adventure
       });
       chip.append(nameEl, del);
       box.appendChild(chip);
@@ -271,12 +233,10 @@
       e.preventDefault();
       const data = new FormData(form);
       const name = [(data.get("firstName") || "").trim(), (data.get("lastName") || "").trim()]
-        .filter(Boolean).join(" ");
+        .filter(Boolean).join(" ").slice(0, 60); // sync rules cap names at 60
       if (!name) return;
-      plan.people.push({ id: "p" + nextPersonId++, name });
+      DB.addPerson(name);
       form.reset();
-      renderCrew();
-      renderAll(); // refresh every adventure's dropdown
     });
   }
 
@@ -370,12 +330,14 @@
       });
     }
 
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "stopcard__del";
-    del.textContent = "Remove stop";
-    del.addEventListener("click", (e) => { e.stopPropagation(); onDelete(); });
-    details.appendChild(del);
+    if (onDelete) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "stopcard__del";
+      del.textContent = "Remove stop";
+      del.addEventListener("click", (e) => { e.stopPropagation(); onDelete(); });
+      details.appendChild(del);
+    }
 
     const summary = row.querySelector(".stopcard__summary");
     summary.addEventListener("click", () => {
@@ -392,19 +354,264 @@
     CATEGORIES.forEach(renderCategory);
   }
 
-  /* ---------- "Start an adventure" forms ---------- */
-  function wireAddForms() {
-    document.querySelectorAll("form.add[data-category]").forEach((form) => {
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const key = form.dataset.category;
-        const data = new FormData(form);
-        const name = (data.get("name") || "").trim();
-        if (!name) return;
-        plan.categories[key].push({ name, stops: [] });
-        form.reset();
-        renderCategory(key);
+  /* ---------- Adventure editor dialog (create + edit, draft-based) ---------- */
+  const CAT_SINGULAR = { roadTrips: "road trip", beachDays: "beach day", camping: "campout", hiking: "hike", events: "event" };
+  let draft = null; // { id|null, category, name, date, stops[], costs[], attendees[] }
+  let advEls = null;
+
+  function dialogEls() {
+    if (!advEls) {
+      advEls = {
+        dialog: document.getElementById("advDialog"),
+        title: document.getElementById("advDialogTitle"),
+        name: document.getElementById("advName"),
+        date: document.getElementById("advDate"),
+        stops: document.getElementById("advStops"),
+        stopForm: document.getElementById("advStopForm"),
+        chips: document.getElementById("advChips"),
+        addPerson: document.getElementById("advAddPerson"),
+        costs: document.getElementById("advCosts"),
+        costForm: document.getElementById("advCostForm"),
+        money: document.getElementById("advMoney"),
+        cancel: document.getElementById("advCancel"),
+        save: document.getElementById("advSave"),
+      };
+    }
+    return advEls;
+  }
+
+  function openAdvDialog(category, adventure) {
+    const els = dialogEls();
+    if (!els.dialog || !els.dialog.showModal) return;
+    draft = adventure
+      ? {
+          id: adventure.id, category,
+          name: adventure.name, date: adventure.date || "",
+          stops: adventure.stops.map((s) => ({ ...s })),
+          costs: adventure.costs.map((c) => ({ ...c })),
+          attendees: adventure.attendees.slice(),
+        }
+      : { id: null, category, name: "", date: "", stops: [], costs: [], attendees: [] };
+    els.title.textContent = adventure ? "Edit adventure" : `New ${CAT_SINGULAR[category]}`;
+    els.name.value = draft.name;
+    els.date.value = draft.date;
+    els.stopForm.reset();
+    els.costForm.reset();
+    renderDraft();
+    els.dialog.showModal();
+  }
+
+  function renderDraft() {
+    if (!draft) return;
+    const els = dialogEls();
+
+    // stops
+    els.stops.innerHTML = draft.stops.length
+      ? ""
+      : '<p class="cards__empty">No stops yet — fill the fields below and hit “Add this stop”.</p>';
+    draft.stops.forEach((s, i) => {
+      const row = document.createElement("div");
+      row.className = "advd__stoprow";
+      row.innerHTML = `<span class="advd__stopname"></span><span class="advd__stopmeta"></span><button type="button" aria-label="Remove stop">✕</button>`;
+      row.querySelector(".advd__stopname").textContent = s.name;
+      row.querySelector(".advd__stopmeta").textContent =
+        [s.time, Number(s.price) > 0 ? money(s.price) : ""].filter(Boolean).join(" · ");
+      row.querySelector("button").addEventListener("click", () => {
+        draft.stops.splice(i, 1);
+        renderDraft();
       });
+      els.stops.appendChild(row);
+    });
+
+    // who's coming
+    els.chips.innerHTML = "";
+    draft.attendees.forEach((pid) => {
+      const person = plan.people.find((p) => p.id === pid);
+      if (!person) return;
+      const chip = document.createElement("span");
+      chip.className = "chip chip--small";
+      const nameEl = document.createElement("span");
+      nameEl.textContent = person.name;
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "✕";
+      del.setAttribute("aria-label", `Remove ${person.name}`);
+      del.addEventListener("click", () => {
+        draft.attendees = draft.attendees.filter((id) => id !== pid);
+        renderDraft();
+      });
+      chip.append(nameEl, del);
+      els.chips.appendChild(chip);
+    });
+
+    els.addPerson.innerHTML = "";
+    const remaining = plan.people.filter((p) => !draft.attendees.includes(p.id));
+    if (plan.people.length === 0) {
+      els.addPerson.innerHTML = '<p class="adventure__hint">Add people in The Crew section first — then pick who\'s coming here.</p>';
+    } else if (remaining.length === 0) {
+      els.addPerson.innerHTML = '<p class="adventure__hint">The whole crew is in ✓</p>';
+    } else {
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", "Add someone to this adventure");
+      const ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = "Add someone…";
+      select.appendChild(ph);
+      remaining.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", () => {
+        if (!select.value) return;
+        draft.attendees.push(select.value);
+        renderDraft();
+      });
+      els.addPerson.appendChild(select);
+    }
+
+    // costs
+    els.costs.innerHTML = "";
+    draft.costs.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.className = "adventure__costrow";
+      row.innerHTML = `<span class="adventure__costlabel"></span><span class="adventure__costamount">${money(c.amount)}</span><button type="button" aria-label="Remove cost">✕</button>`;
+      row.querySelector(".adventure__costlabel").textContent = c.label;
+      row.querySelector("button").addEventListener("click", () => {
+        draft.costs.splice(i, 1);
+        renderDraft();
+      });
+      els.costs.appendChild(row);
+    });
+
+    // live totals
+    const t = advTotals(draft);
+    els.money.innerHTML =
+      `Total ${money(t.total)} <small>(stops ${money(t.stopsSum)} + shared ${money(t.costsSum)})</small> · ` +
+      (t.n > 0 ? `${money(t.per)} each` : `<small>add people to split</small>`);
+  }
+
+  function stopFields(s) {
+    return {
+      name: s.name,
+      time: s.time || "",
+      price: clampMoney(s.price),
+      location: s.location || "",
+      link: s.link || "",
+      meetingPoint: s.meetingPoint || "",
+      whatToBring: s.whatToBring || "",
+      notes: s.notes || "",
+    };
+  }
+
+  function findAdventure(id) {
+    for (const k of CATEGORIES) {
+      const a = (plan.categories[k] || []).find((x) => x.id === id);
+      if (a) return a;
+    }
+    return null;
+  }
+
+  function advError(msg) {
+    const el = document.getElementById("advError");
+    if (!el) return;
+    el.hidden = !msg;
+    el.textContent = msg || "";
+  }
+
+  function saveDraft() {
+    if (!draft) return;
+    const els = dialogEls();
+
+    // anything typed but not yet added? add it rather than silently losing it
+    if ((new FormData(els.stopForm).get("name") || "").trim()) els.stopForm.requestSubmit();
+    if ((new FormData(els.costForm).get("label") || "").trim()) els.costForm.requestSubmit();
+
+    const name = els.name.value.trim();
+    if (!name) {
+      advError("Give the adventure a name first — that's the only must-have.");
+      els.name.focus();
+      return;
+    }
+    advError("");
+    const date = els.date.value || "";
+
+    if (!draft.id) {
+      const tripId = DB.addTrip({ title: name, category: draft.category, date });
+      draft.stops.forEach((s) => DB.addStop(tripId, stopFields(s)));
+      draft.costs.forEach((c) => DB.addCost(tripId, { label: c.label, amount: clampMoney(c.amount) }));
+      draft.attendees.forEach((pid) => {
+        const p = plan.people.find((x) => x.id === pid);
+        if (p) DB.addAttendeeAs(tripId, p.id, p.name);
+      });
+    } else {
+      const current = findAdventure(draft.id);
+      if (current) {
+        if (current.name !== name || (current.date || "") !== date) {
+          DB.updateTrip(draft.id, { title: name, date });
+        }
+        const draftStopIds = new Set(draft.stops.filter((s) => s.id).map((s) => s.id));
+        current.stops.forEach((s) => { if (!draftStopIds.has(s.id)) DB.removeStop(draft.id, s.id); });
+        draft.stops.filter((s) => !s.id).forEach((s) => DB.addStop(draft.id, stopFields(s)));
+
+        const draftCostIds = new Set(draft.costs.filter((c) => c.id).map((c) => c.id));
+        current.costs.forEach((c) => { if (!draftCostIds.has(c.id)) DB.removeCost(draft.id, c.id); });
+        draft.costs.filter((c) => !c.id).forEach((c) => DB.addCost(draft.id, { label: c.label, amount: clampMoney(c.amount) }));
+
+        current.attendees.forEach((pid) => { if (!draft.attendees.includes(pid)) DB.removeAttendee(draft.id, pid); });
+        draft.attendees.filter((pid) => !current.attendees.includes(pid)).forEach((pid) => {
+          const p = plan.people.find((x) => x.id === pid);
+          if (p) DB.addAttendeeAs(draft.id, p.id, p.name);
+        });
+      }
+    }
+    draft = null;
+    els.dialog.close();
+  }
+
+  function wireAdvDialog() {
+    const els = dialogEls();
+    if (!els.dialog) return;
+
+    els.stopForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!draft) return;
+      const data = new FormData(els.stopForm);
+      const name = (data.get("name") || "").trim();
+      if (!name) return;
+      draft.stops.push({
+        name,
+        time: (data.get("time") || "").trim(),
+        price: clampMoney(data.get("price")),
+        location: (data.get("location") || "").trim(),
+        link: (data.get("link") || "").trim(),
+        meetingPoint: (data.get("meetingPoint") || "").trim(),
+        whatToBring: (data.get("whatToBring") || "").trim(),
+        notes: (data.get("notes") || "").trim(),
+      });
+      els.stopForm.reset();
+      renderDraft();
+    });
+
+    els.costForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!draft) return;
+      const data = new FormData(els.costForm);
+      const label = (data.get("label") || "").trim();
+      if (!label) return;
+      draft.costs.push({ label, amount: clampMoney(data.get("amount")) });
+      els.costForm.reset();
+      renderDraft();
+    });
+
+    els.cancel.addEventListener("click", () => { draft = null; els.dialog.close(); });
+    els.save.addEventListener("click", saveDraft);
+  }
+
+  function wireCreateButtons() {
+    document.querySelectorAll(".adv-create").forEach((btn) => {
+      btn.addEventListener("click", () => openAdvDialog(btn.dataset.category, null));
     });
   }
 
@@ -427,7 +634,7 @@
     return {
       name: s.name || "Stop",
       time: s.time || "",
-      price: Number(s.price) || 0,
+      price: clampMoney(s.price),
       location: s.location || "",
       link: s.link || "",
       meetingPoint: s.meetingPoint || "",
@@ -445,6 +652,7 @@
     if (isAdventureList) {
       return list.map((a) => ({
         name: a.name || "Untitled adventure",
+        date: typeof a.date === "string" ? a.date : "",
         stops: (a.stops || []).map(normalizeStop),
         attendees: (Array.isArray(a.attendees) ? a.attendees : []).filter((id) => validIds.has(id)),
         costs: (Array.isArray(a.costs) ? a.costs : []).map((c) => ({
@@ -463,35 +671,58 @@
 
   function importPlan(file) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       let data;
       try {
         data = JSON.parse(e.target.result);
       } catch {
-        alert("That file isn't valid JSON. Pick a plan you saved from here.");
+        UI.alert("That file isn't valid JSON. Pick a plan you saved from here.", "Couldn't restore");
         return;
       }
       if (!data.categories) {
-        alert("This file is missing trip data. Nothing was changed.");
+        UI.alert("This file is missing trip data. Nothing was changed.", "Couldn't restore");
         return;
       }
-      plan.people = (Array.isArray(data.people) ? data.people : [])
+      if (syncMode === "sync") {
+        const ok = await UI.confirm(
+          "Restoring replaces the crew's current plan for EVERYONE on this link. Replaced adventures stay recoverable in trash. Continue?",
+          { title: "Restore over the live plan?", okText: "Restore" }
+        );
+        if (!ok) return;
+      }
+
+      const importedPeople = (Array.isArray(data.people) ? data.people : [])
         .filter((p) => p && p.id && p.name)
         .map((p) => ({ id: String(p.id), name: String(p.name) }));
-      nextPersonId = plan.people.reduce((max, p) => {
-        const m = /^p(\d+)$/.exec(p.id);
-        return m ? Math.max(max, Number(m[1]) + 1) : max;
-      }, 1);
-      const validIds = new Set(plan.people.map((p) => p.id));
+      const validIds = new Set(importedPeople.map((p) => p.id));
+      const importedCategories = {};
       CATEGORIES.forEach((key) => {
-        plan.categories[key] = toAdventures(data.categories[key], validIds);
+        importedCategories[key] = toAdventures(data.categories[key], validIds);
       });
+
+      // Replace current backend contents. Deleted adventures land in trash
+      // (recoverable); the roster is swapped outright.
+      tripsIndex.slice().forEach((t) => DB.deleteTrip(t.id));
+      plan.people.slice().forEach((p) => DB.removePerson(p.id));
+
+      const idMap = {}; // old person id -> { newId, name }
+      importedPeople.forEach((p) => {
+        idMap[p.id] = { newId: DB.addPerson(p.name), name: p.name };
+      });
+      CATEGORIES.forEach((key) => importedCategories[key].forEach((adv) => {
+        const tripId = DB.addTrip({ title: adv.name, category: key, date: adv.date || "" });
+        adv.stops.forEach((s) => DB.addStop(tripId, s));
+        adv.costs.forEach((c) => DB.addCost(tripId, c));
+        adv.attendees.forEach((oldId) => {
+          const m = idMap[oldId];
+          if (m) DB.addAttendeeAs(tripId, m.newId, m.name);
+        });
+      }));
+
       // v2 files kept the trip name on the calculator
       plan.meta.tripName = (data.meta && data.meta.tripName) || (data.calculator && data.calculator.tripName) || "";
       const tripInput = document.getElementById("tripName");
-      if (tripInput) tripInput.value = plan.meta.tripName;
-      renderCrew();
-      renderAll();
+      if (tripInput && !tripInput.disabled) tripInput.value = plan.meta.tripName;
     };
     reader.readAsText(file);
   }
@@ -505,6 +736,63 @@
       e.target.value = ""; // allow re-importing the same file
     });
   }
+
+  /* ---------- In-app dialogs (no window.alert/confirm/prompt) ---------- */
+  const UI = (function () {
+    let els = null;
+    let resolver = null;
+
+    function get() {
+      if (!els) {
+        els = {
+          dialog: document.getElementById("msgDialog"),
+          title: document.getElementById("msgTitle"),
+          body: document.getElementById("msgBody"),
+          input: document.getElementById("msgInput"),
+          ok: document.getElementById("msgOk"),
+          cancel: document.getElementById("msgCancel"),
+        };
+        if (els.dialog) {
+          els.ok.addEventListener("click", () => { settle(true); els.dialog.close(); });
+          els.cancel.addEventListener("click", () => { settle(false); els.dialog.close(); });
+          els.dialog.addEventListener("cancel", () => settle(false)); // ESC
+          els.input.addEventListener("focus", () => els.input.select());
+        }
+      }
+      return els;
+    }
+
+    function settle(value) {
+      if (resolver) { resolver(value); resolver = null; }
+    }
+
+    function open({ title, body, okText, cancelText, inputValue }) {
+      const e = get();
+      if (!e.dialog || !e.dialog.showModal) {
+        // ancient-browser fallback
+        return Promise.resolve(cancelText ? window.confirm(body) : (window.alert(body), true));
+      }
+      settle(false); // resolve any dangling promise from a previous dialog
+      e.title.textContent = title;
+      e.body.textContent = body;
+      e.ok.textContent = okText || "OK";
+      e.cancel.hidden = !cancelText;
+      if (cancelText) e.cancel.textContent = cancelText;
+      e.input.hidden = inputValue == null;
+      if (inputValue != null) e.input.value = inputValue;
+      e.dialog.showModal();
+      return new Promise((resolve) => { resolver = resolve; });
+    }
+
+    return {
+      alert: (body, title = "Heads up") => open({ title, body }),
+      confirm: (body, opts = {}) =>
+        open({ title: opts.title || "Are you sure?", body, okText: opts.okText || "Yes, do it", cancelText: opts.cancelText || "Cancel" }),
+      showLink: (url, body) =>
+        open({ title: "Share this link", body: body || "Copy it and drop it in the group chat:", inputValue: url }),
+    };
+  })();
+  window.UI = UI; // roadmap.js uses this too
 
   /* ---------- Small escaping helpers ---------- */
   function escapeHtml(s) {
@@ -640,6 +928,189 @@
     els.forEach((el) => io.observe(el));
   }
 
+  /* ---------- DB assembly: listeners → read-model → render ---------- */
+  function rebuildModel() {
+    CATEGORIES.forEach((k) => { plan.categories[k] = []; });
+    tripsIndex.forEach((t) => {
+      if (t.archived || !plan.categories[t.category]) return;
+      const d = tripDataCache[t.id] || { stops: [], costs: [], attendees: [] };
+      plan.categories[t.category].push({
+        id: t.id,
+        name: t.title,
+        date: t.date || "",
+        stops: d.stops,
+        costs: d.costs,
+        attendees: d.attendees,
+      });
+    });
+  }
+
+  function startData() {
+    DB.onPeople((list) => {
+      plan.people = list.map((p) => ({ id: p.id, name: p.name }));
+      renderCrew();
+      renderAll(); // chips + every dropdown depend on the roster
+    });
+
+    DB.onTrips((list) => {
+      tripsIndex = list;
+
+      // attach a data listener for every trip we haven't seen yet —
+      // the one-page layout shows all adventures at once, so unlike the
+      // rebuild's board we deliberately want every tripData live.
+      list.forEach((t) => {
+        if (tripDataUnsubs[t.id]) return;
+        tripDataUnsubs[t.id] = DB.onTripData(t.id, (data) => {
+          tripDataCache[t.id] = {
+            stops: data.stops,
+            costs: data.costs,
+            attendees: data.attendees.map((a) => a.id),
+          };
+          rebuildModel();
+          const trip = tripsIndex.find((x) => x.id === t.id);
+          if (trip) renderCategory(trip.category);
+          else renderAll();
+        });
+      });
+
+      // drop listeners for trips that no longer exist
+      Object.keys(tripDataUnsubs).forEach((id) => {
+        if (list.some((t) => t.id === id)) return;
+        tripDataUnsubs[id]();
+        delete tripDataUnsubs[id];
+        delete tripDataCache[id];
+      });
+
+      rebuildModel();
+      renderAll();
+    });
+  }
+
+  // Local scratchpad starts with the same demo content the page always had.
+  function seedLocalDemo() {
+    const p1 = DB.addPerson("Naledi Mokoena");
+    const p2 = DB.addPerson("Josh van Wyk");
+    const blank = { time: "", location: "", link: "", meetingPoint: "", whatToBring: "", notes: "" };
+    const inDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+
+    const t1 = DB.addTrip({ title: "Coast Highway Run", category: "roadTrips", date: inDays(12) });
+    DB.addStop(t1, { ...blank, name: "Sunset overlook, mile 88", price: 450 });
+    DB.addCost(t1, { label: "Petrol", amount: 600 });
+    DB.addAttendeeAs(t1, p1, "Naledi Mokoena");
+    DB.addAttendeeAs(t1, p2, "Josh van Wyk");
+
+    const t2 = DB.addTrip({ title: "Low Tide Loop", category: "beachDays" });
+    DB.addStop(t2, { ...blank, name: "Tide pools at low tide", price: 0 });
+
+    const t3 = DB.addTrip({ title: "Lakeside Weekend", category: "camping", date: inDays(33) });
+    DB.addStop(t3, { ...blank, name: "Two nights, lakeside site", price: 950 });
+
+    const t4 = DB.addTrip({ title: "Ridge Runners", category: "hiking", date: inDays(-9) });
+    DB.addStop(t4, { ...blank, name: "Ridge loop — 6.2 mi", price: 120 });
+
+    const t5 = DB.addTrip({ title: "Concert Night", category: "events", date: inDays(5) });
+    DB.addStop(t5, { ...blank, name: "Indie show at the amphitheatre", time: "7:00 PM", price: 350 });
+    DB.addAttendeeAs(t5, p1, "Naledi Mokoena");
+    DB.addAttendeeAs(t5, p2, "Josh van Wyk");
+  }
+
+  /* ---------- Sync chrome: banner, invite, start-syncing dialog ---------- */
+  function wireSync(mode) {
+    const syncBtn = document.getElementById("syncBtn");
+    const banner = document.getElementById("syncBanner");
+    const dialog = document.getElementById("crewNameDialog");
+    if (!syncBtn) return;
+    syncBtn.hidden = false;
+
+    if (mode === "sync") {
+      syncBtn.textContent = "Invite the group";
+      syncBtn.addEventListener("click", () => {
+        const share = () => {
+          syncBtn.textContent = "Link copied ✓";
+          setTimeout(() => { syncBtn.textContent = "Invite the group"; }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(location.href).then(share, () => UI.showLink(location.href));
+        } else {
+          UI.showLink(location.href);
+        }
+      });
+      if (banner) {
+        banner.hidden = false;
+        banner.textContent = "Live crew link — everyone who has it sees and edits this plan. Don't post it publicly.";
+      }
+      DB.checkExpired().then((msg) => {
+        if (msg && banner) {
+          banner.hidden = false;
+          banner.classList.add("sync-banner--expired");
+          banner.textContent = msg;
+        }
+      }).catch(() => {});
+      return;
+    }
+
+    // local mode, crew already pinned in config: the button just opens it —
+    // no way to create more crews from the UI.
+    const locked = (window.TrailheadConfig && window.TrailheadConfig.lockedCrewCode || "").trim();
+    if (locked) {
+      syncBtn.textContent = "Open the live plan";
+      syncBtn.addEventListener("click", () => {
+        location.href = location.pathname + "?crew=" + encodeURIComponent(locked);
+      });
+      return;
+    }
+
+    // local mode, no crew yet: the button opens the crew-name dialog
+    syncBtn.textContent = "Start syncing";
+    syncBtn.addEventListener("click", () => { if (dialog && dialog.showModal) dialog.showModal(); });
+    const cancel = document.getElementById("crewNameCancel");
+    if (cancel) cancel.addEventListener("click", () => dialog.close());
+    const form = document.getElementById("crewNameForm");
+    if (form) form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = (new FormData(form).get("name") || "").trim() || "Our Crew";
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating…";
+      const snapshot = {
+        people: plan.people,
+        adventures: CATEGORIES.flatMap((key) => (plan.categories[key] || []).map((a) => ({
+          category: key, name: a.name, stops: a.stops, costs: a.costs, attendees: a.attendees,
+        }))),
+      };
+      DB.createCrew(name)
+        .then((code) => DB.importIntoCrew(code, snapshot))
+        .then((code) => { location.href = location.pathname + "?crew=" + code; })
+        .catch((err) => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Create the link";
+          dialog.close();
+          UI.alert("Couldn't create the crew link — " + err.message, "Sync didn't start");
+        });
+    });
+  }
+
+  /* ---------- One-time safety notice (per browser) ---------- */
+  function maybeShowSafetyNotice() {
+    const KEY = "tpc-safety-ack-v1";
+    let seen = false;
+    try { seen = Boolean(localStorage.getItem(KEY)); } catch { /* private mode etc. */ }
+    if (seen) return;
+    const dialog = document.getElementById("safetyDialog");
+    const ok = document.getElementById("safetyOk");
+    if (!dialog || !dialog.showModal || !ok) return;
+    ok.addEventListener("click", () => {
+      try { localStorage.setItem(KEY, String(Date.now())); } catch { /* fine */ }
+      dialog.close();
+    }, { once: true });
+    // wait for the loading overlay to finish before popping anything up
+    const waiter = setInterval(() => {
+      if (document.getElementById("loader")) return;
+      clearInterval(waiter);
+      if (!document.querySelector("dialog[open]")) dialog.showModal();
+    }, 400);
+  }
+
   /* ---------- Boot ---------- */
   // .has-js gates the reveal-hidden state so content stays visible without JS
   document.documentElement.classList.add("has-js");
@@ -648,22 +1119,42 @@
   window.Trailhead = { getPlan: () => plan };
 
   document.addEventListener("DOMContentLoaded", () => {
+    const { mode } = DB.init();
+    syncMode = mode;
+
     applyPhotos();
-    renderCrew();
-    renderAll();
     wireCrew();
-    wireAddForms();
+    wireCreateButtons();
+    wireAdvDialog();
     wireSaveLoad();
     initBeachWaves();
     wireReveals();
+    wireSync(mode);
+
+    if (mode === "local" && DB.isEmpty()) seedLocalDemo();
+    startData();
 
     const tripInput = document.getElementById("tripName");
     if (tripInput) {
-      tripInput.value = plan.meta.tripName || "";
-      tripInput.addEventListener("input", () => { plan.meta.tripName = tripInput.value; });
+      if (mode === "sync") {
+        // the crew's name doubles as the trip/roadmap title on a live link
+        tripInput.disabled = true;
+        tripInput.placeholder = "…";
+        DB.fetchMeta().then((meta) => {
+          if (meta && meta.name) {
+            plan.meta.tripName = meta.name;
+            tripInput.value = meta.name;
+          }
+        }).catch(() => {});
+      } else {
+        tripInput.value = plan.meta.tripName || "";
+        tripInput.addEventListener("input", () => { plan.meta.tripName = tripInput.value; });
+      }
     }
 
     const roadmapBtn = document.getElementById("roadmapBtn");
     if (roadmapBtn && window.Roadmap) roadmapBtn.addEventListener("click", window.Roadmap.generate);
+
+    maybeShowSafetyNotice();
   });
 })();

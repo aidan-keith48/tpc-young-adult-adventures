@@ -254,7 +254,9 @@
       (list || []).some((a) => (a.stops || []).length)
     );
     if (!hasStops) {
-      alert("Add at least one stop to an adventure first — then generate the roadmap.");
+      const msg = "Add at least one stop to an adventure first — then generate the roadmap.";
+      if (window.UI) window.UI.alert(msg, "Nothing to map yet");
+      else alert(msg);
       return;
     }
     const html = pageHTML(plan);
