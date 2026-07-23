@@ -31,6 +31,22 @@
   // Amounts stay inside what the sync rules accept (0 … R1 000 000).
   const clampMoney = (v) => Math.min(1000000, Math.max(0, Number(v) || 0));
 
+  // Only real web addresses become clickable — blocks javascript: and friends,
+  // and forgives a missing https:// prefix.
+  function normalizeUrl(raw) {
+    let u = String(raw || "").trim();
+    if (!u) return null;
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    try {
+      const parsed = new URL(u);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      if (!parsed.hostname.includes(".")) return null;
+      return parsed.href.slice(0, 500);
+    } catch {
+      return null;
+    }
+  }
+
   // Everything is a group cost split evenly: stops + shared costs, over attendees.
   function advTotals(adv) {
     const stopsSum = (adv.stops || []).reduce((s, x) => s + (Number(x.price) || 0), 0);
@@ -108,6 +124,7 @@
         </div>
       </header>
       <p class="adventure__going"></p>
+      <p class="adventure__links"></p>
       <div class="adventure__stops"></div>
       <div class="adventure__costrows"></div>
       <p class="adventure__money"></p>`;
@@ -134,6 +151,22 @@
       .filter(Boolean);
     if (names.length) going.textContent = "Going: " + names.join(", ");
     else going.remove();
+
+    const linksWrap = card.querySelector(".adventure__links");
+    const validLinks = (adventure.links || []).filter((l) => /^https?:\/\//i.test(l.url));
+    if (validLinks.length) {
+      validLinks.forEach((l) => {
+        const a = document.createElement("a");
+        a.className = "linkpill";
+        a.href = l.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = l.label + " ↗";
+        linksWrap.appendChild(a);
+      });
+    } else {
+      linksWrap.remove();
+    }
 
     const stopsWrap = card.querySelector(".adventure__stops");
     if (adventure.stops.length === 0) {
@@ -298,10 +331,9 @@
       ["Location", stop.location, true],
       ["Meeting point", stop.meetingPoint, false],
       ["What to bring", stop.whatToBring, false],
-      ["Notes", stop.notes, false],
     ];
     const filled = detailFields.filter(([, value]) => value);
-    if (filled.length === 0) {
+    if (filled.length === 0 && !stop.notes) {
       const empty = document.createElement("p");
       empty.className = "stopcard__field stopcard__field--empty";
       empty.textContent = "No extra details added.";
@@ -328,6 +360,18 @@
         }
         details.appendChild(p);
       });
+    }
+
+    // Notes get their own block so line breaks and longer text read properly
+    if (stop.notes) {
+      const noteBlock = document.createElement("div");
+      noteBlock.className = "stopcard__notes";
+      const label = document.createElement("strong");
+      label.textContent = "Notes";
+      const body = document.createElement("p");
+      body.textContent = stop.notes; // pre-wrap CSS keeps the line breaks
+      noteBlock.append(label, body);
+      details.appendChild(noteBlock);
     }
 
     if (onDelete) {
@@ -372,6 +416,8 @@
         addPerson: document.getElementById("advAddPerson"),
         costs: document.getElementById("advCosts"),
         costForm: document.getElementById("advCostForm"),
+        links: document.getElementById("advLinks"),
+        linkForm: document.getElementById("advLinkForm"),
         money: document.getElementById("advMoney"),
         cancel: document.getElementById("advCancel"),
         save: document.getElementById("advSave"),
@@ -389,14 +435,17 @@
           name: adventure.name, date: adventure.date || "",
           stops: adventure.stops.map((s) => ({ ...s })),
           costs: adventure.costs.map((c) => ({ ...c })),
+          links: (adventure.links || []).map((l) => ({ ...l })),
           attendees: adventure.attendees.slice(),
         }
-      : { id: null, category, name: "", date: "", stops: [], costs: [], attendees: [] };
+      : { id: null, category, name: "", date: "", stops: [], costs: [], links: [], attendees: [] };
     els.title.textContent = adventure ? "Edit adventure" : `New ${CAT_SINGULAR[category]}`;
     els.name.value = draft.name;
     els.date.value = draft.date;
     els.stopForm.reset();
     els.costForm.reset();
+    els.linkForm.reset();
+    advError("");
     renderDraft();
     els.dialog.showModal();
   }
@@ -471,6 +520,21 @@
       els.addPerson.appendChild(select);
     }
 
+    // links
+    els.links.innerHTML = "";
+    draft.links.forEach((l, i) => {
+      const row = document.createElement("div");
+      row.className = "adventure__costrow";
+      row.innerHTML = `<span class="adventure__costlabel"></span><span class="advd__url"></span><button type="button" aria-label="Remove link">✕</button>`;
+      row.querySelector(".adventure__costlabel").textContent = l.label;
+      row.querySelector(".advd__url").textContent = l.url;
+      row.querySelector("button").addEventListener("click", () => {
+        draft.links.splice(i, 1);
+        renderDraft();
+      });
+      els.links.appendChild(row);
+    });
+
     // costs
     els.costs.innerHTML = "";
     draft.costs.forEach((c, i) => {
@@ -527,6 +591,11 @@
     // anything typed but not yet added? add it rather than silently losing it
     if ((new FormData(els.stopForm).get("name") || "").trim()) els.stopForm.requestSubmit();
     if ((new FormData(els.costForm).get("label") || "").trim()) els.costForm.requestSubmit();
+    if ((new FormData(els.linkForm).get("url") || "").trim()) {
+      els.linkForm.requestSubmit();
+      // still there after submitting? it was invalid — let the error show
+      if ((new FormData(els.linkForm).get("url") || "").trim()) return;
+    }
 
     const name = els.name.value.trim();
     if (!name) {
@@ -541,6 +610,7 @@
       const tripId = DB.addTrip({ title: name, category: draft.category, date });
       draft.stops.forEach((s) => DB.addStop(tripId, stopFields(s)));
       draft.costs.forEach((c) => DB.addCost(tripId, { label: c.label, amount: clampMoney(c.amount) }));
+      draft.links.forEach((l) => DB.addLink(tripId, { label: l.label, url: l.url }));
       draft.attendees.forEach((pid) => {
         const p = plan.people.find((x) => x.id === pid);
         if (p) DB.addAttendeeAs(tripId, p.id, p.name);
@@ -558,6 +628,10 @@
         const draftCostIds = new Set(draft.costs.filter((c) => c.id).map((c) => c.id));
         current.costs.forEach((c) => { if (!draftCostIds.has(c.id)) DB.removeCost(draft.id, c.id); });
         draft.costs.filter((c) => !c.id).forEach((c) => DB.addCost(draft.id, { label: c.label, amount: clampMoney(c.amount) }));
+
+        const draftLinkIds = new Set(draft.links.filter((l) => l.id).map((l) => l.id));
+        (current.links || []).forEach((l) => { if (!draftLinkIds.has(l.id)) DB.removeLink(draft.id, l.id); });
+        draft.links.filter((l) => !l.id).forEach((l) => DB.addLink(draft.id, { label: l.label, url: l.url }));
 
         current.attendees.forEach((pid) => { if (!draft.attendees.includes(pid)) DB.removeAttendee(draft.id, pid); });
         draft.attendees.filter((pid) => !current.attendees.includes(pid)).forEach((pid) => {
@@ -602,6 +676,20 @@
       if (!label) return;
       draft.costs.push({ label, amount: clampMoney(data.get("amount")) });
       els.costForm.reset();
+      renderDraft();
+    });
+
+    els.linkForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!draft) return;
+      const data = new FormData(els.linkForm);
+      const label = (data.get("label") || "").trim();
+      const url = normalizeUrl(data.get("url"));
+      if (!label) { advError("Give the link a name — e.g. Tickets, Payment, Website."); return; }
+      if (!url) { advError("That link doesn't look like a web address — it needs something like example.com."); return; }
+      advError("");
+      draft.links.push({ label: label.slice(0, 60), url });
+      els.linkForm.reset();
       renderDraft();
     });
 
@@ -659,6 +747,9 @@
           label: (c && c.label) || "Cost",
           amount: Number(c && c.amount) || 0,
         })),
+        links: (Array.isArray(a.links) ? a.links : [])
+          .map((l) => ({ label: String((l && l.label) || "Link").slice(0, 60), url: normalizeUrl(l && l.url) }))
+          .filter((l) => l.url),
       }));
     }
     return [{
@@ -713,6 +804,7 @@
         const tripId = DB.addTrip({ title: adv.name, category: key, date: adv.date || "" });
         adv.stops.forEach((s) => DB.addStop(tripId, s));
         adv.costs.forEach((c) => DB.addCost(tripId, c));
+        (adv.links || []).forEach((l) => DB.addLink(tripId, l));
         adv.attendees.forEach((oldId) => {
           const m = idMap[oldId];
           if (m) DB.addAttendeeAs(tripId, m.newId, m.name);
@@ -933,13 +1025,14 @@
     CATEGORIES.forEach((k) => { plan.categories[k] = []; });
     tripsIndex.forEach((t) => {
       if (t.archived || !plan.categories[t.category]) return;
-      const d = tripDataCache[t.id] || { stops: [], costs: [], attendees: [] };
+      const d = tripDataCache[t.id] || { stops: [], costs: [], links: [], attendees: [] };
       plan.categories[t.category].push({
         id: t.id,
         name: t.title,
         date: t.date || "",
         stops: d.stops,
         costs: d.costs,
+        links: d.links || [],
         attendees: d.attendees,
       });
     });
@@ -964,6 +1057,7 @@
           tripDataCache[t.id] = {
             stops: data.stops,
             costs: data.costs,
+            links: data.links || [],
             attendees: data.attendees.map((a) => a.id),
           };
           rebuildModel();
@@ -1075,7 +1169,7 @@
       const snapshot = {
         people: plan.people,
         adventures: CATEGORIES.flatMap((key) => (plan.categories[key] || []).map((a) => ({
-          category: key, name: a.name, stops: a.stops, costs: a.costs, attendees: a.attendees,
+          category: key, name: a.name, stops: a.stops, costs: a.costs, links: a.links, attendees: a.attendees,
         }))),
       };
       DB.createCrew(name)

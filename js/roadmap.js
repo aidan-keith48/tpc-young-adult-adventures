@@ -43,7 +43,9 @@
     if (stop.location) rows.push(["Location", stop.location, /^https?:\/\//i.test(stop.location)]);
     if (stop.meetingPoint) rows.push(["Meet", stop.meetingPoint, false]);
     if (stop.whatToBring) rows.push(["Bring", stop.whatToBring, false]);
-    if (stop.notes) rows.push(["Notes", stop.notes, false]);
+    const notes = stop.notes
+      ? `<div class="stop-notes"><strong>Notes</strong><p>${esc(stop.notes)}</p></div>`
+      : "";
     return `<div class="stop rm-reveal">
       <div class="stop-top">
         <span class="stop-name">${esc(stop.name)}</span>
@@ -53,7 +55,16 @@
       ${rows.map(([k, v, isLink]) =>
         `<p class="stop-row"><strong>${k}:</strong> ${isLink ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</p>`
       ).join("")}
+      ${notes}
     </div>`;
+  }
+
+  function linkPills(links) {
+    const valid = (links || []).filter((l) => l && l.url && /^https?:\/\//i.test(l.url));
+    if (!valid.length) return "";
+    return `<p class="adv-links">${valid.map((l) =>
+      `<a class="linkpill" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`
+    ).join("")}</p>`;
   }
 
   function bandHTML(cat, adventures, peopleById) {
@@ -71,6 +82,7 @@
         <h3>${esc(a.name)}</h3>
         <p class="adv-meta">${a.stops.length} stop${a.stops.length === 1 ? "" : "s"} · ${t.n} going · ${money(t.total)}</p>
         ${names.length ? `<p class="adv-people"><strong>Going:</strong> ${esc(names.join(", "))}</p>` : ""}
+        ${linkPills(a.links)}
         <div class="stops">${a.stops.map(stopCard).join("")}</div>
         ${costs}
         <p class="adv-total">Total ${money(t.total)}${t.n ? ` · ${money(t.per)} each` : ""}</p>
@@ -169,6 +181,12 @@
   .stop-row{font-size:.85rem;margin:.18rem 0}
   .stop-row strong{color:#5A6A62;font-weight:600}
   .stop-row a{color:#2C8C8C;word-break:break-all}
+  .stop-notes{margin-top:.5rem;padding-top:.5rem;border-top:1px dashed rgba(28,43,39,.2)}
+  .stop-notes strong{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#5A6A62;margin-bottom:.2rem}
+  .stop-notes p{margin:0;font-size:.85rem;white-space:pre-wrap;word-break:break-word}
+  .adv-links{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0 .9rem}
+  .linkpill{display:inline-flex;align-items:center;font-size:.82rem;font-weight:600;text-decoration:none;color:#164653;background:rgba(30,154,171,.14);border:1px solid rgba(30,154,171,.35);border-radius:999px;padding:.3rem .8rem}
+  .linkpill:hover{background:rgba(30,154,171,.24)}
   .costs{padding:clamp(2.5rem,6vw,4rem) 0}
   .costs h2{font-size:clamp(1.6rem,3.5vw,2.4rem);margin-bottom:1.2rem}
   .cost-line{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(28,43,39,.25);padding:.5rem 0;max-width:460px}

@@ -106,12 +106,13 @@ window.TrailheadDB = (function () {
 
     function currentTripData(tripId) {
       const data = store.tripData[tripId];
-      if (!data) return { attendees: [], stops: [], costs: [], suggestions: [], settings: { peopleOverride: null } };
+      if (!data) return { attendees: [], stops: [], costs: [], suggestions: [], links: [], settings: { peopleOverride: null } };
       return {
         attendees: Object.entries(data.attendees).map(([id, a]) => ({ id, ...a })),
         stops: Object.entries(data.stops).map(([id, s]) => ({ id, ...s })).sort((a, b) => a.order - b.order),
         costs: Object.entries(data.costs).map(([id, c]) => ({ id, ...c })),
         suggestions: Object.entries(data.suggestions).map(([id, s]) => ({ id, ...s })).sort((a, b) => b.at - a.at),
+        links: Object.entries(data.links || {}).map(([id, l]) => ({ id, ...l })),
         settings: { ...data.settings },
       };
     }
@@ -124,7 +125,7 @@ window.TrailheadDB = (function () {
 
     function ensureTripData(tripId) {
       if (!store.tripData[tripId]) {
-        store.tripData[tripId] = { attendees: {}, stops: {}, costs: {}, suggestions: {}, settings: { peopleOverride: null } };
+        store.tripData[tripId] = { attendees: {}, stops: {}, costs: {}, suggestions: {}, links: {}, settings: { peopleOverride: null } };
       }
       return store.tripData[tripId];
     }
@@ -317,6 +318,19 @@ window.TrailheadDB = (function () {
         touchTripData(tripId);
       },
 
+      addLink(tripId, fields) {
+        const data = ensureTripData(tripId);
+        data.links = data.links || {};
+        data.links[uid()] = fields;
+        touchTripData(tripId);
+      },
+
+      removeLink(tripId, linkId) {
+        const data = ensureTripData(tripId);
+        if (data.links) delete data.links[linkId];
+        touchTripData(tripId);
+      },
+
       removeCost(tripId, costId) {
         const data = ensureTripData(tripId);
         if (data.costs[costId]) trash(tripId, "cost", costId, data.costs[costId]);
@@ -479,6 +493,7 @@ window.TrailheadDB = (function () {
         stops: Object.entries(raw.stops || {}).map(([id, s]) => ({ id, ...s })).sort((a, b) => a.order - b.order),
         costs: Object.entries(raw.costs || {}).map(([id, c]) => ({ id, ...c })),
         suggestions: Object.entries(raw.suggestions || {}).map(([id, s]) => ({ id, ...s })).sort((a, b) => b.at - a.at),
+        links: Object.entries(raw.links || {}).map(([id, l]) => ({ id, ...l })),
         settings: { peopleOverride: (raw.settings && raw.settings.peopleOverride) ?? null },
       };
     }
@@ -703,6 +718,22 @@ window.TrailheadDB = (function () {
         commit(updates);
       },
 
+      // Links don't touch the money summary — plain writes.
+      addLink(tripId, fields) {
+        const id = crewRef.child("tripData/" + tripId + "/links").push().key;
+        commit({
+          ["tripData/" + tripId + "/links/" + id]: fields,
+          ["trips/" + tripId + "/updatedAt"]: Date.now(),
+        });
+      },
+
+      removeLink(tripId, linkId) {
+        commit({
+          ["tripData/" + tripId + "/links/" + linkId]: null,
+          ["trips/" + tripId + "/updatedAt"]: Date.now(),
+        });
+      },
+
       addSuggestion(tripId, fields) {
         const id = crewRef.child("tripData/" + tripId + "/suggestions").push().key;
         const obj = { ...fields, at: Date.now() };
@@ -869,6 +900,14 @@ window.TrailheadDB = (function () {
         (adv.attendees || []).forEach((pid) => {
           if (peopleById[pid]) attendees[pid] = { name: peopleById[pid], addedAt: now };
         });
+        const links = {};
+        (adv.links || []).forEach((l) => {
+          if (!l || !l.label || !l.url) return;
+          links[root.child("x").push().key] = {
+            label: String(l.label).slice(0, 60),
+            url: String(l.url).slice(0, 500),
+          };
+        });
         const t = window.Calculator.totals({
           stops: Object.values(stops),
           costs: Object.values(costs),
@@ -881,7 +920,7 @@ window.TrailheadDB = (function () {
           attendeeCount: t.attendeeCount, headcount: t.headcount,
           total: t.total, perPerson: t.perPerson, updatedAt: now,
         };
-        updates["tripData/" + tripId] = { attendees, stops, costs };
+        updates["tripData/" + tripId] = { attendees, stops, costs, links };
       });
       return root.update(updates).then(() => code);
     },
@@ -956,6 +995,8 @@ window.TrailheadDB = (function () {
     removeStop: (...a) => backend.removeStop(...a),
     addCost: (...a) => backend.addCost(...a),
     removeCost: (...a) => backend.removeCost(...a),
+    addLink: (...a) => backend.addLink(...a),
+    removeLink: (...a) => backend.removeLink(...a),
     addSuggestion: (...a) => backend.addSuggestion(...a),
     removeSuggestion: (...a) => backend.removeSuggestion(...a),
     setPeopleOverride: (...a) => backend.setPeopleOverride(...a),

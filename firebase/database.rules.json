@@ -79,6 +79,14 @@
                 "$other": { ".validate": false }
               }
             },
+            "links": {
+              "$linkId": {
+                ".validate": "newData.hasChildren(['label','url'])",
+                "label": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+                "url":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
+                "$other": { ".validate": false }
+              }
+            },
             "suggestions": {
               "$suggestionId": {
                 ".validate": "newData.hasChildren(['text','at'])",
