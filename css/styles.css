@@ -972,14 +972,25 @@ body.no-scroll { overflow: hidden; }
   /* Adventure editor + preview become full-height sheets with a footer
      that never scrolls away — the action buttons must stay reachable. */
   #advDialog, #previewDialog {
-    max-width: 100vw; width: 100vw; height: 100dvh; max-height: 100dvh;
+    max-width: 100vw; width: 100vw;
+    /* vh first as a fallback for older mobile browsers, dvh (accounts for
+       the address bar showing/hiding) overrides it where supported */
+    height: 100vh; max-height: 100vh;
+    height: 100dvh; max-height: 100dvh;
     margin: 0; border-radius: 0; padding: 0;
+    overflow: hidden; /* only .advd__scroll inside should ever scroll */
   }
   .advd {
     display: flex; flex-direction: column; height: 100%; overflow: hidden;
     padding: calc(1.2rem + env(safe-area-inset-top, 0px)) 1.1rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
   }
-  .advd > *:not(.dialog__actions) { flex: none; }
+  /* Everything stays its natural size EXCEPT the scroll region, which must
+     grow to fill the leftover space — otherwise it collapses to its content
+     height and, since .advd clips overflow, the extra content is trapped
+     un-scrollable rather than just hidden. (.advd__scroll's own flex:1 rule
+     below has lower specificity than this one, so it has to be excluded
+     here explicitly or this rule silently wins and re-breaks scrolling.) */
+  .advd > *:not(.dialog__actions):not(.advd__scroll) { flex: none; }
   #advDialog h2, #previewDialog h2 { padding-right: 2.4rem; } /* room for a future close icon */
   .advd__scroll {
     flex: 1 1 auto; min-height: 0; overflow-y: auto;
