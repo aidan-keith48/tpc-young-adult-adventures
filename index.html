@@ -80,7 +80,7 @@
           <label class="advd__name">Adventure name
             <input id="advName" placeholder="Golden Route Adventure" maxlength="80" />
           </label>
-          <label>Date <span class="advd__opt">(optional)</span>
+          <label>Date
             <input id="advDate" type="date" />
           </label>
         </div>
@@ -96,7 +96,10 @@
           <label>Meeting point <input name="meetingPoint" placeholder="Where to meet up" maxlength="200" /></label>
           <label>What to bring <input name="whatToBring" placeholder="Snacks, sunscreen…" maxlength="300" /></label>
           <label class="adventure__addstop-notes">Notes <textarea name="notes" rows="2" placeholder="Anything else worth remembering" maxlength="1000"></textarea></label>
-          <button class="btn btn--ghost" type="submit">＋ Add this stop</button>
+          <div class="advd__stopbtns">
+            <button class="btn btn--ghost" id="advStopSubmit" type="submit">＋ Add this stop</button>
+            <button class="btn btn--ghost" id="advStopCancelEdit" type="button" hidden>Cancel edit</button>
+          </div>
         </form>
 
         <h3 class="adventure__subtitle">Links</h3>
@@ -161,6 +164,28 @@
       </p>
       <div class="dialog__actions">
         <button class="btn btn--solid" id="safetyOk" type="button">Got it 👍</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============ ADVENTURE PREVIEW (from the "What's coming up" grid) ============ -->
+  <dialog id="previewDialog">
+    <div class="advd">
+      <span class="preview__badge" id="previewBadge"></span>
+      <h2 id="previewName"></h2>
+      <p class="preview__meta" id="previewMeta"></p>
+
+      <div class="advd__scroll">
+        <p class="adventure__going" id="previewGoing"></p>
+        <p class="adventure__links" id="previewLinks"></p>
+        <div class="adventure__stops" id="previewStops"></div>
+        <div class="adventure__costrows" id="previewCosts"></div>
+        <p class="adventure__money" id="previewMoney"></p>
+      </div>
+
+      <div class="dialog__actions">
+        <button class="btn btn--ghost" id="previewClose" type="button">Close</button>
+        <button class="btn btn--solid" id="previewGoto" type="button">Go to adventure →</button>
       </div>
     </div>
   </dialog>

@@ -186,9 +186,12 @@ a { color: inherit; }
 }
 
 /* themed groups */
-.verses__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; align-items: start; }
+/* stretch (not start) so all three groups match height regardless of
+   how many verses each one holds */
+.verses__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; align-items: stretch; }
 .verses__group {
   --vg-accent: var(--teal);
+  display: flex; flex-direction: column;
   background: rgba(240,235,220,.05);
   border: 1px solid rgba(240,235,220,.13);
   border-top: 3px solid var(--vg-accent);
@@ -558,15 +561,20 @@ a { color: inherit; }
   white-space: pre-wrap; word-break: break-word;
 }
 
-/* clickable link pills — adventure cards + roadmap export */
+/* clickable link pills — adventure cards, preview popup, roadmap export.
+   Solid fill (not just a tinted outline) so a ticket/payment link reads as
+   an obvious button, not just decorative text. */
 .linkpill {
-  display: inline-flex; align-items: center; gap: .2rem;
-  font-size: .82rem; font-weight: 600; text-decoration: none;
-  color: var(--teal); background: rgba(44,140,140,.12);
-  border: 1px solid rgba(44,140,140,.3); border-radius: 999px;
-  padding: .3rem .8rem; margin: 0 .4rem .4rem 0;
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .85rem; font-weight: 700; text-decoration: none;
+  color: var(--paper); background: var(--teal);
+  border: 1px solid var(--teal); border-radius: 999px;
+  padding: .4rem .9rem; margin: 0 .5rem .5rem 0;
+  box-shadow: 0 2px 6px -2px rgba(44,140,140,.5);
+  transition: transform .12s ease, box-shadow .12s ease;
 }
-.linkpill:hover { background: rgba(44,140,140,.2); }
+.linkpill:hover { transform: translateY(-1px); box-shadow: 0 4px 10px -2px rgba(44,140,140,.6); }
+.linkpill__icon { font-size: .9em; }
 .adventure__links { margin: 0 0 .7rem; }
 .adventure__links:empty { display: none; }
 .stopcard__del {
@@ -587,8 +595,9 @@ a { color: inherit; }
   resize: vertical;
 }
 .adventure__addstop textarea:focus { outline: none; border-color: var(--accent, var(--pine)); }
-.adventure__addstop-notes, .adventure__addstop .btn { grid-column: 1 / -1; }
+.adventure__addstop-notes, .adventure__addstop .btn, .adventure__addstop .advd__stopbtns { grid-column: 1 / -1; }
 .adventure__addstop .btn { justify-self: start; }
+.advd__stopbtns { display: flex; gap: .6rem; }
 
 /* ---- who's coming + shared costs, inside each adventure ---- */
 .adventure__subtitle {
@@ -648,17 +657,19 @@ a { color: inherit; }
 }
 .tripcard {
   display: flex; flex-direction: column; gap: .3rem;
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
   background: var(--paper2); border: 1px solid var(--line);
   border-top: 4px solid var(--accent, var(--pine)); border-radius: 14px;
   padding: 1rem 1.1rem; text-decoration: none; color: var(--ink);
   transition: transform .15s ease, box-shadow .15s ease;
 }
+.tripcard:focus-visible { outline: 3px solid var(--accent, var(--amber)); outline-offset: 2px; }
 .tripcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-.tripcard[data-cat="roadTrips"] { --accent: var(--amber); }
-.tripcard[data-cat="beachDays"] { --accent: var(--teal); }
-.tripcard[data-cat="camping"]  { --accent: var(--pine); }
-.tripcard[data-cat="hiking"]   { --accent: var(--clay); }
-.tripcard[data-cat="events"]   { --accent: var(--plum); }
+.tripcard[data-cat="roadTrips"], #previewDialog[data-cat="roadTrips"] { --accent: var(--amber); }
+.tripcard[data-cat="beachDays"], #previewDialog[data-cat="beachDays"] { --accent: var(--teal); }
+.tripcard[data-cat="camping"], #previewDialog[data-cat="camping"]  { --accent: var(--pine); }
+.tripcard[data-cat="hiking"], #previewDialog[data-cat="hiking"]   { --accent: var(--clay); }
+.tripcard[data-cat="events"], #previewDialog[data-cat="events"]   { --accent: var(--plum); }
 .tripcard__badge {
   align-self: flex-start; font-family: var(--mono); font-size: .62rem;
   text-transform: uppercase; letter-spacing: .12em; font-weight: 700;
@@ -685,8 +696,8 @@ a { color: inherit; }
 }
 .add__title { font-size: 1rem; font-family: var(--body); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--slate); }
 .add label, .calc label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--slate); font-weight: 500; }
-input, select {
-  font-family: var(--body); font-size: .95rem;
+input, select, textarea {
+  font-family: var(--body); font-size: 1rem; /* 16px stops iOS Safari zooming in on focus */
   padding: .55rem .7rem;
   border: 1.5px solid var(--line); border-radius: 9px;
   background: var(--paper);
@@ -755,16 +766,16 @@ input:focus, select:focus { outline: none; border-color: var(--accent, var(--pin
 }
 .sync-banner--expired { background: var(--clay); color: var(--paper); }
 
-#crewNameDialog, #advDialog, #msgDialog, #safetyDialog {
+#crewNameDialog, #advDialog, #msgDialog, #safetyDialog, #previewDialog {
   border: 1px solid var(--line); border-radius: 16px;
   background: var(--paper); color: var(--ink);
   padding: 1.4rem 1.5rem; max-width: 26rem; width: calc(100vw - 2.5rem);
   box-shadow: 0 24px 60px -20px rgba(28,43,39,.55);
 }
-#crewNameDialog::backdrop, #advDialog::backdrop, #msgDialog::backdrop, #safetyDialog::backdrop {
+#crewNameDialog::backdrop, #advDialog::backdrop, #msgDialog::backdrop, #safetyDialog::backdrop, #previewDialog::backdrop {
   background: rgba(28,43,39,.55); backdrop-filter: blur(3px);
 }
-#crewNameDialog h2, #advDialog h2, #msgDialog h2, #safetyDialog h2 { font-size: 1.4rem; margin-bottom: .5rem; }
+#crewNameDialog h2, #advDialog h2, #msgDialog h2, #safetyDialog h2, #previewDialog h2 { font-size: 1.4rem; margin-bottom: .5rem; }
 .dialog__hint { font-size: .88rem; color: var(--slate); margin: 0 0 1rem; }
 #safetyDialog { max-width: 30rem; }
 .msg__input { width: 100%; font-family: var(--mono); font-size: .82rem; margin-bottom: .4rem; }
@@ -776,6 +787,13 @@ input:focus, select:focus { outline: none; border-color: var(--accent, var(--pin
 
 /* the adventure editor is a bigger beast: wide + scrollable */
 #advDialog { max-width: 44rem; max-height: 88vh; overflow-y: auto; }
+#previewDialog { max-width: 36rem; max-height: 88vh; overflow-y: auto; }
+.preview__badge {
+  display: inline-block; font-family: var(--mono); font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--paper);
+  background: var(--accent, var(--pine)); border-radius: 999px; padding: .2rem .65rem; margin-bottom: .5rem;
+}
+.preview__meta { font-family: var(--mono); font-size: .82rem; color: var(--slate); margin: .3rem 0 1rem; }
 #advDialog .adventure__subtitle { margin-top: 1.2rem; }
 .advd__row { display: grid; grid-template-columns: 2fr 1fr; gap: .8rem; align-items: start; }
 .advd__row input { width: 100%; min-width: 0; }
@@ -783,7 +801,6 @@ input:focus, select:focus { outline: none; border-color: var(--accent, var(--pin
   width: 100%; min-height: 2.55rem; /* WebKit date inputs come up short otherwise */
   font-family: var(--body); -webkit-appearance: none; appearance: none;
 }
-.advd__opt { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .advd__error { color: var(--clay); font-size: .85rem; font-weight: 600; margin: .6rem 0 0; }
 .advd__stops { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .6rem; }
 .advd__stops:empty { margin-bottom: 0; }
@@ -794,8 +811,14 @@ input:focus, select:focus { outline: none; border-color: var(--accent, var(--pin
 }
 .advd__stopname { flex: 1; min-width: 0; font-weight: 600; }
 .advd__stopmeta { font-family: var(--mono); font-size: .75rem; color: var(--slate); white-space: nowrap; }
-.advd__stoprow button { border: none; background: none; cursor: pointer; color: var(--slate); padding: 0; line-height: 1; }
-.advd__stoprow button:hover { color: var(--clay); }
+.advd__stoprow--editing { border-color: var(--accent, var(--pine)); background: var(--paper); }
+.advd__stopedit {
+  border: none; background: none; cursor: pointer; color: var(--teal);
+  font-size: .82rem; font-weight: 600; padding: 0; line-height: 1; white-space: nowrap;
+}
+.advd__stopedit:hover { text-decoration: underline; }
+.advd__stopdel { border: none; background: none; cursor: pointer; color: var(--slate); padding: 0; line-height: 1; }
+.advd__stopdel:hover { color: var(--clay); }
 #advDialog .adventure__addstop { background: var(--paper2); border-color: var(--line); }
 
 .advd__hint { font-size: .82rem; color: var(--slate); margin: 0 0 .6rem; }
@@ -886,7 +909,10 @@ body.no-scroll { overflow: hidden; }
 
 /* ---------- Floating music button ---------- */
 .music-btn {
-  position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
+  position: fixed; z-index: 60;
+  /* env(safe-area-inset-*) keeps it clear of the iPhone home-indicator/notch */
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   width: 3.2rem; height: 3.2rem; border-radius: 50%;
   border: none; cursor: pointer; font-size: 1.25rem; line-height: 1;
   background: var(--ink); color: var(--paper);
@@ -943,15 +969,18 @@ body.no-scroll { overflow: hidden; }
 
   .verses__grid { grid-template-columns: 1fr; }
 
-  /* Adventure editor becomes a full-height sheet with a footer that
-     never scrolls away — the Save button must always be reachable. */
-  #advDialog {
+  /* Adventure editor + preview become full-height sheets with a footer
+     that never scrolls away — the action buttons must stay reachable. */
+  #advDialog, #previewDialog {
     max-width: 100vw; width: 100vw; height: 100dvh; max-height: 100dvh;
     margin: 0; border-radius: 0; padding: 0;
   }
-  .advd { display: flex; flex-direction: column; height: 100%; padding: 1.2rem 1.1rem; overflow: hidden; }
+  .advd {
+    display: flex; flex-direction: column; height: 100%; overflow: hidden;
+    padding: calc(1.2rem + env(safe-area-inset-top, 0px)) 1.1rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
+  }
   .advd > *:not(.dialog__actions) { flex: none; }
-  #advDialog h2 { padding-right: 2.4rem; } /* room for a future close icon */
+  #advDialog h2, #previewDialog h2 { padding-right: 2.4rem; } /* room for a future close icon */
   .advd__scroll {
     flex: 1 1 auto; min-height: 0; overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -960,8 +989,6 @@ body.no-scroll { overflow: hidden; }
     flex: none; margin-top: 0; padding-top: .9rem;
     border-top: 1px solid var(--line); background: var(--paper);
   }
-  /* 16px inputs stop iOS Safari auto-zooming on focus */
-  #advDialog input, #advDialog select, #advDialog textarea { font-size: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

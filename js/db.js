@@ -306,6 +306,15 @@ window.TrailheadDB = (function () {
         touchTripData(tripId);
       },
 
+      // Field edit on an existing stop — keeps its id and order (so it
+      // doesn't jump position or lose its trash lineage), unlike remove+add.
+      updateStop(tripId, stopId, fields) {
+        const data = ensureTripData(tripId);
+        if (!data.stops[stopId]) return;
+        Object.assign(data.stops[stopId], fields);
+        touchTripData(tripId);
+      },
+
       removeStop(tripId, stopId) {
         const data = ensureTripData(tripId);
         if (data.stops[stopId]) trash(tripId, "stop", stopId, data.stops[stopId]);
@@ -689,6 +698,17 @@ window.TrailheadDB = (function () {
         commit(updates);
       },
 
+      // Field edit on an existing stop — writes the whole merged stop object
+      // (keeps its order) so it still satisfies the rules' hasChildren check.
+      updateStop(tripId, stopId, fields) {
+        const existing = ((tripDataCache[tripId] || {}).stops || {})[stopId];
+        if (!existing) return;
+        const merged = Object.assign({}, existing, fields);
+        const t = totalsAfter(tripId, (d) => { d.stops = d.stops || {}; d.stops[stopId] = merged; });
+        const updates = withSummary({ ["tripData/" + tripId + "/stops/" + stopId]: merged }, tripId, t);
+        commit(updates);
+      },
+
       removeStop(tripId, stopId) {
         const obj = ((tripDataCache[tripId] || {}).stops || {})[stopId];
         if (!obj) return;
@@ -988,6 +1008,7 @@ window.TrailheadDB = (function () {
     addAttendee: (...a) => backend.addAttendee(...a),
     addAttendeeAs: (...a) => backend.addAttendeeAs(...a),
     removeAttendee: (...a) => backend.removeAttendee(...a),
+    updateStop: (...a) => backend.updateStop(...a),
     onPeople: (...a) => backend.onPeople(...a),
     addPerson: (...a) => backend.addPerson(...a),
     removePerson: (...a) => backend.removePerson(...a),

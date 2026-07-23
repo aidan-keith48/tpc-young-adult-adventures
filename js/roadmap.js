@@ -63,7 +63,7 @@
     const valid = (links || []).filter((l) => l && l.url && /^https?:\/\//i.test(l.url));
     if (!valid.length) return "";
     return `<p class="adv-links">${valid.map((l) =>
-      `<a class="linkpill" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`
+      `<a class="linkpill" href="${esc(l.url)}" target="_blank" rel="noopener">🔗 ${esc(l.label)} ↗</a>`
     ).join("")}</p>`;
   }
 
@@ -185,8 +185,8 @@
   .stop-notes strong{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#5A6A62;margin-bottom:.2rem}
   .stop-notes p{margin:0;font-size:.85rem;white-space:pre-wrap;word-break:break-word}
   .adv-links{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0 .9rem}
-  .linkpill{display:inline-flex;align-items:center;font-size:.82rem;font-weight:600;text-decoration:none;color:#164653;background:rgba(30,154,171,.14);border:1px solid rgba(30,154,171,.35);border-radius:999px;padding:.3rem .8rem}
-  .linkpill:hover{background:rgba(30,154,171,.24)}
+  .linkpill{display:inline-flex;align-items:center;gap:.3rem;font-size:.85rem;font-weight:700;text-decoration:none;color:#F0EBDC;background:#2C8C8C;border:1px solid #2C8C8C;border-radius:999px;padding:.4rem .9rem;margin:0 .5rem .5rem 0;box-shadow:0 2px 6px -2px rgba(44,140,140,.5)}
+  .linkpill:hover{filter:brightness(1.08)}
   .costs{padding:clamp(2.5rem,6vw,4rem) 0}
   .costs h2{font-size:clamp(1.6rem,3.5vw,2.4rem);margin-bottom:1.2rem}
   .cost-line{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(28,43,39,.25);padding:.5rem 0;max-width:460px}

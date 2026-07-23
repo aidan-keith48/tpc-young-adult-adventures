@@ -47,6 +47,24 @@
     }
   }
 
+  // A clearly-clickable pill for a stored {label, url} — used on adventure
+  // cards, in the preview popup, and (as inline HTML) in the roadmap export.
+  function makeLinkPill(l) {
+    const a = document.createElement("a");
+    a.className = "linkpill";
+    a.href = l.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    const icon = document.createElement("span");
+    icon.className = "linkpill__icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "🔗";
+    const label = document.createElement("span");
+    label.textContent = l.label;
+    a.append(icon, label, document.createTextNode(" ↗"));
+    return a;
+  }
+
   // Everything is a group cost split evenly: stops + shared costs, over attendees.
   function advTotals(adv) {
     const stopsSum = (adv.stops || []).reduce((s, x) => s + (Number(x.price) || 0), 0);
@@ -155,15 +173,7 @@
     const linksWrap = card.querySelector(".adventure__links");
     const validLinks = (adventure.links || []).filter((l) => /^https?:\/\//i.test(l.url));
     if (validLinks.length) {
-      validLinks.forEach((l) => {
-        const a = document.createElement("a");
-        a.className = "linkpill";
-        a.href = l.url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.textContent = l.label + " ↗";
-        linksWrap.appendChild(a);
-      });
+      validLinks.forEach((l) => linksWrap.appendChild(makeLinkPill(l)));
     } else {
       linksWrap.remove();
     }
@@ -211,10 +221,10 @@
     all.forEach(({ key, a }) => {
       const t = advTotals(a);
       const past = isPast(a.date);
-      const card = document.createElement("a");
+      const card = document.createElement("button");
+      card.type = "button";
       card.className = "tripcard" + (past ? " tripcard--past" : "");
       card.dataset.cat = key;
-      card.href = `#${SECTION_IDS[key]}`;
       card.innerHTML = `
         <span class="tripcard__badge">${CAT_LABELS[key]}</span>
         <span class="tripcard__name"></span>
@@ -226,11 +236,74 @@
         a.date ? (past ? "past · " : "") + fmtDate(a.date) : "date TBC";
       card.querySelector(".tripcard__meta").textContent =
         `${a.stops.length} stop${a.stops.length === 1 ? "" : "s"} · ${t.n} going · ${money(t.total)}`;
+      const linkCount = (a.links || []).filter((l) => /^https?:\/\//i.test(l.url)).length;
       const preview = a.stops.slice(0, 2).map((s) => s.name).join(" · ");
       card.querySelector(".tripcard__stops").textContent =
-        preview + (a.stops.length > 2 ? " · …" : "");
+        preview + (a.stops.length > 2 ? " · …" : "") + (linkCount ? ` · 🔗×${linkCount}` : "");
+      card.addEventListener("click", () => openPreview(key, a.id));
       grid.appendChild(card);
     });
+  }
+
+  /* ---------- Adventure preview (from the global grid) ---------- */
+  function openPreview(key, adventureId) {
+    const dialog = document.getElementById("previewDialog");
+    if (!dialog || !dialog.showModal) return;
+    const a = findAdventure(adventureId);
+    if (!a) return;
+    const t = advTotals(a);
+    const past = isPast(a.date);
+
+    dialog.dataset.cat = key;
+    document.getElementById("previewBadge").textContent = CAT_LABELS[key];
+    document.getElementById("previewName").textContent = a.name;
+    document.getElementById("previewMeta").textContent = [
+      a.date ? (past ? "past · " : "") + fmtDate(a.date) : "date TBC",
+      `${a.stops.length} stop${a.stops.length === 1 ? "" : "s"}`,
+      `${t.n} going`,
+    ].join(" · ");
+
+    const going = document.getElementById("previewGoing");
+    const names = a.attendees.map((pid) => (plan.people.find((p) => p.id === pid) || {}).name).filter(Boolean);
+    going.textContent = names.length ? "Going: " + names.join(", ") : "";
+    going.hidden = names.length === 0;
+
+    const linksWrap = document.getElementById("previewLinks");
+    linksWrap.innerHTML = "";
+    const validLinks = (a.links || []).filter((l) => /^https?:\/\//i.test(l.url));
+    validLinks.forEach((l) => linksWrap.appendChild(makeLinkPill(l)));
+    linksWrap.hidden = validLinks.length === 0;
+
+    const stopsWrap = document.getElementById("previewStops");
+    stopsWrap.innerHTML = "";
+    if (a.stops.length === 0) {
+      stopsWrap.innerHTML = '<p class="cards__empty">No stops yet.</p>';
+    } else {
+      a.stops.forEach((s) => stopsWrap.appendChild(buildStopCard(s)));
+    }
+
+    const costsWrap = document.getElementById("previewCosts");
+    costsWrap.innerHTML = "";
+    a.costs.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "adventure__costrow";
+      row.innerHTML = `<span class="adventure__costlabel"></span><span class="adventure__costamount">${money(c.amount)}</span>`;
+      row.querySelector(".adventure__costlabel").textContent = c.label;
+      costsWrap.appendChild(row);
+    });
+
+    document.getElementById("previewMoney").innerHTML =
+      `Total ${money(t.total)} <small>(stops ${money(t.stopsSum)} + shared ${money(t.costsSum)})</small> · ` +
+      (t.n > 0 ? `${money(t.per)} each` : `<small>add people to split</small>`);
+
+    const goto = document.getElementById("previewGoto");
+    goto.onclick = () => {
+      dialog.close();
+      const target = document.getElementById(SECTION_IDS[key]);
+      if (target) setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    };
+
+    dialog.showModal();
   }
 
   /* ---------- Crew roster ---------- */
@@ -401,6 +474,7 @@
   /* ---------- Adventure editor dialog (create + edit, draft-based) ---------- */
   const CAT_SINGULAR = { roadTrips: "road trip", beachDays: "beach day", camping: "campout", hiking: "hike", events: "event" };
   let draft = null; // { id|null, category, name, date, stops[], costs[], attendees[] }
+  let editingStopIndex = null; // index into draft.stops currently loaded into the stop form, or null
   let advEls = null;
 
   function dialogEls() {
@@ -412,6 +486,8 @@
         date: document.getElementById("advDate"),
         stops: document.getElementById("advStops"),
         stopForm: document.getElementById("advStopForm"),
+        stopSubmit: document.getElementById("advStopSubmit"),
+        stopCancelEdit: document.getElementById("advStopCancelEdit"),
         chips: document.getElementById("advChips"),
         addPerson: document.getElementById("advAddPerson"),
         costs: document.getElementById("advCosts"),
@@ -424,6 +500,29 @@
       };
     }
     return advEls;
+  }
+
+  function updateStopFormMode() {
+    const els = dialogEls();
+    if (editingStopIndex !== null) {
+      els.stopSubmit.textContent = "Save changes";
+      els.stopCancelEdit.hidden = false;
+    } else {
+      els.stopSubmit.textContent = "＋ Add this stop";
+      els.stopCancelEdit.hidden = true;
+    }
+  }
+
+  function fillStopForm(s) {
+    const f = dialogEls().stopForm.elements;
+    f.name.value = s.name || "";
+    f.time.value = s.time || "";
+    f.price.value = s.price || "";
+    f.location.value = s.location || "";
+    f.link.value = s.link || "";
+    f.meetingPoint.value = s.meetingPoint || "";
+    f.whatToBring.value = s.whatToBring || "";
+    f.notes.value = s.notes || "";
   }
 
   function openAdvDialog(category, adventure) {
@@ -445,6 +544,8 @@
     els.stopForm.reset();
     els.costForm.reset();
     els.linkForm.reset();
+    editingStopIndex = null;
+    updateStopFormMode();
     advError("");
     renderDraft();
     els.dialog.showModal();
@@ -460,12 +561,28 @@
       : '<p class="cards__empty">No stops yet — fill the fields below and hit “Add this stop”.</p>';
     draft.stops.forEach((s, i) => {
       const row = document.createElement("div");
-      row.className = "advd__stoprow";
-      row.innerHTML = `<span class="advd__stopname"></span><span class="advd__stopmeta"></span><button type="button" aria-label="Remove stop">✕</button>`;
+      row.className = "advd__stoprow" + (editingStopIndex === i ? " advd__stoprow--editing" : "");
+      row.innerHTML = `<span class="advd__stopname"></span><span class="advd__stopmeta"></span>
+        <button type="button" class="advd__stopedit">Edit</button>
+        <button type="button" class="advd__stopdel" aria-label="Remove stop">✕</button>`;
       row.querySelector(".advd__stopname").textContent = s.name;
       row.querySelector(".advd__stopmeta").textContent =
         [s.time, Number(s.price) > 0 ? money(s.price) : ""].filter(Boolean).join(" · ");
-      row.querySelector("button").addEventListener("click", () => {
+      row.querySelector(".advd__stopedit").addEventListener("click", () => {
+        editingStopIndex = i;
+        fillStopForm(s);
+        updateStopFormMode();
+        renderDraft();
+        dialogEls().stopForm.elements.name.focus();
+      });
+      row.querySelector(".advd__stopdel").addEventListener("click", () => {
+        if (editingStopIndex === i) {
+          editingStopIndex = null;
+          els.stopForm.reset();
+          updateStopFormMode();
+        } else if (editingStopIndex !== null && editingStopIndex > i) {
+          editingStopIndex--; // rows after the removed one shift down
+        }
         draft.stops.splice(i, 1);
         renderDraft();
       });
@@ -623,7 +740,16 @@
         }
         const draftStopIds = new Set(draft.stops.filter((s) => s.id).map((s) => s.id));
         current.stops.forEach((s) => { if (!draftStopIds.has(s.id)) DB.removeStop(draft.id, s.id); });
-        draft.stops.filter((s) => !s.id).forEach((s) => DB.addStop(draft.id, stopFields(s)));
+        draft.stops.forEach((s) => {
+          if (!s.id) {
+            DB.addStop(draft.id, stopFields(s));
+            return;
+          }
+          const orig = current.stops.find((x) => x.id === s.id);
+          if (!orig) return;
+          const before = stopFields(orig), after = stopFields(s);
+          if (JSON.stringify(before) !== JSON.stringify(after)) DB.updateStop(draft.id, s.id, after);
+        });
 
         const draftCostIds = new Set(draft.costs.filter((c) => c.id).map((c) => c.id));
         current.costs.forEach((c) => { if (!draftCostIds.has(c.id)) DB.removeCost(draft.id, c.id); });
@@ -654,7 +780,7 @@
       const data = new FormData(els.stopForm);
       const name = (data.get("name") || "").trim();
       if (!name) return;
-      draft.stops.push({
+      const fields = {
         name,
         time: (data.get("time") || "").trim(),
         price: clampMoney(data.get("price")),
@@ -663,8 +789,23 @@
         meetingPoint: (data.get("meetingPoint") || "").trim(),
         whatToBring: (data.get("whatToBring") || "").trim(),
         notes: (data.get("notes") || "").trim(),
-      });
+      };
+      if (editingStopIndex !== null) {
+        const existingId = draft.stops[editingStopIndex] && draft.stops[editingStopIndex].id;
+        draft.stops[editingStopIndex] = existingId ? { id: existingId, ...fields } : fields;
+        editingStopIndex = null;
+      } else {
+        draft.stops.push(fields);
+      }
       els.stopForm.reset();
+      updateStopFormMode();
+      renderDraft();
+    });
+
+    els.stopCancelEdit.addEventListener("click", () => {
+      editingStopIndex = null;
+      els.stopForm.reset();
+      updateStopFormMode();
       renderDraft();
     });
 
@@ -701,6 +842,12 @@
     document.querySelectorAll(".adv-create").forEach((btn) => {
       btn.addEventListener("click", () => openAdvDialog(btn.dataset.category, null));
     });
+  }
+
+  function wirePreviewDialog() {
+    const dialog = document.getElementById("previewDialog");
+    const close = document.getElementById("previewClose");
+    if (dialog && close) close.addEventListener("click", () => dialog.close());
   }
 
   /* ---------- JSON save / load ---------- */
@@ -908,6 +1055,14 @@
   const CYCLE_MS = 3500; // one polaroid swaps its photo this often
   const photoRatio = {}; // url → natural aspect ratio, so frames fit the whole photo
 
+  // Real photos range from tall portraits to wide panoramas; letting a frame
+  // take on the *exact* ratio can stretch a scattered polaroid layout way
+  // out of its slot (badly on the small screens where space is tightest).
+  // Clamping keeps every frame close to a real print's proportions — a
+  // panorama gets a little more crop (already covered by background-size:
+  // cover) instead of blowing up the layout.
+  const clampRatio = (r) => Math.min(1.5, Math.max(0.6, r));
+
   function setPhoto(el, url) {
     el.style.backgroundImage = `url("${url.replace(/"/g, "%22")}")`;
     // Inline overrides: the placeholder rules use the `background:` shorthand,
@@ -923,7 +1078,7 @@
     } else {
       const img = new Image();
       img.onload = () => {
-        photoRatio[url] = (img.naturalWidth / img.naturalHeight).toFixed(4);
+        photoRatio[url] = clampRatio(img.naturalWidth / img.naturalHeight).toFixed(4);
         if (el.dataset.photo === url) el.style.aspectRatio = photoRatio[url];
       };
       img.src = url;
@@ -952,7 +1107,7 @@
     // photo's aspect ratio so its frame can fit it exactly (no crop)
     pool.forEach((u) => {
       const img = new Image();
-      img.onload = () => { photoRatio[u] = (img.naturalWidth / img.naturalHeight).toFixed(4); };
+      img.onload = () => { photoRatio[u] = clampRatio(img.naturalWidth / img.naturalHeight).toFixed(4); };
       img.src = u;
     });
 
@@ -1220,6 +1375,7 @@
     wireCrew();
     wireCreateButtons();
     wireAdvDialog();
+    wirePreviewDialog();
     wireSaveLoad();
     initBeachWaves();
     wireReveals();
