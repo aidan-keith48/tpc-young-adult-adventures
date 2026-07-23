@@ -104,6 +104,16 @@
           }
         },
 
+        "suggestions": {
+          "$suggestionId": {
+            ".validate": "newData.hasChildren(['text','at'])",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
+            "at":   { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+
         "trash": {
           "$entryId": {
             ".validate": "newData.hasChildren(['kind','deletedAt'])",

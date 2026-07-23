@@ -123,6 +123,46 @@
     renderGlobal();
   }
 
+  /* ---------- Per-adventure suggestions (visible to the whole crew) ---------- */
+  function timeAgo(ts) {
+    const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return "just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function buildSuggestionRow(s, onRemove) {
+    const row = document.createElement("div");
+    row.className = "sugg__row";
+    row.innerHTML = `<p class="sugg__text"></p><p class="sugg__meta"></p><button type="button" class="sugg__del" aria-label="Remove suggestion">✕</button>`;
+    row.querySelector(".sugg__text").textContent = s.text;
+    row.querySelector(".sugg__meta").textContent = (s.name ? s.name + " · " : "") + timeAgo(s.at);
+    row.querySelector(".sugg__del").addEventListener("click", () => onRemove(s.id));
+    return row;
+  }
+
+  function renderSuggestionList(wrap, suggestions, tripId) {
+    wrap.innerHTML = "";
+    if (!suggestions || suggestions.length === 0) {
+      wrap.innerHTML = '<p class="sugg__empty">No suggestions yet for this one.</p>';
+    } else {
+      suggestions.forEach((s) => wrap.appendChild(buildSuggestionRow(s, (id) => DB.removeSuggestion(tripId, id))));
+    }
+  }
+
+  function wireSuggestForm(form, tripId) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = (new FormData(form).get("text") || "").trim();
+      if (!text) return;
+      DB.addSuggestion(tripId, { text: text.slice(0, 500) });
+      form.reset();
+    });
+  }
+
   /* ---------- Adventure display card (read-only + Edit) ---------- */
   function buildAdventureCard(key, adventure) {
     const t = advTotals(adventure);
@@ -145,7 +185,15 @@
       <p class="adventure__links"></p>
       <div class="adventure__stops"></div>
       <div class="adventure__costrows"></div>
-      <p class="adventure__money"></p>`;
+      <p class="adventure__money"></p>
+      <div class="adventure__suggs">
+        <h5 class="adventure__suggtitle">💡 Suggestions</h5>
+        <div class="adventure__sugglist"></div>
+        <form class="adventure__suggform">
+          <input name="text" placeholder="Suggest something for this one…" maxlength="500" />
+          <button type="submit" class="btn btn--ghost btn--sm">Send</button>
+        </form>
+      </div>`;
 
     card.querySelector(".adventure__name").textContent = adventure.name;
     card.querySelector(".adventure__meta").textContent = [
@@ -197,6 +245,9 @@
     card.querySelector(".adventure__money").innerHTML =
       `Total ${money(t.total)} <small>(stops ${money(t.stopsSum)} + shared ${money(t.costsSum)})</small> · ` +
       (t.n > 0 ? `${money(t.per)} each` : `<small>add people to split</small>`);
+
+    renderSuggestionList(card.querySelector(".adventure__sugglist"), adventure.suggestions, adventure.id);
+    wireSuggestForm(card.querySelector(".adventure__suggform"), adventure.id);
 
     return card;
   }
@@ -255,6 +306,7 @@
     const past = isPast(a.date);
 
     dialog.dataset.cat = key;
+    dialog.dataset.tripId = adventureId;
     document.getElementById("previewBadge").textContent = CAT_LABELS[key];
     document.getElementById("previewName").textContent = a.name;
     document.getElementById("previewMeta").textContent = [
@@ -295,6 +347,8 @@
     document.getElementById("previewMoney").innerHTML =
       `Total ${money(t.total)} <small>(stops ${money(t.stopsSum)} + shared ${money(t.costsSum)})</small> · ` +
       (t.n > 0 ? `${money(t.per)} each` : `<small>add people to split</small>`);
+
+    renderSuggestionList(document.getElementById("previewSuggList"), a.suggestions, a.id);
 
     const goto = document.getElementById("previewGoto");
     goto.onclick = () => {
@@ -342,6 +396,33 @@
         .filter(Boolean).join(" ").slice(0, 60); // sync rules cap names at 60
       if (!name) return;
       DB.addPerson(name);
+      form.reset();
+    });
+  }
+
+  /* ---------- Site-wide suggestion box (not tied to an adventure) ---------- */
+  function renderGlobalSuggestions(list) {
+    const box = document.getElementById("globalSuggList");
+    if (!box) return;
+    box.innerHTML = "";
+    if (list.length === 0) {
+      box.innerHTML = '<p class="cards__empty">Nothing sent yet — first one\'s free.</p>';
+      return;
+    }
+    list.forEach((s) => box.appendChild(buildSuggestionRow(s, (id) => DB.removeGlobalSuggestion(id))));
+  }
+
+  function wireGlobalSuggestions() {
+    DB.onGlobalSuggestions(renderGlobalSuggestions);
+    const form = document.getElementById("globalSuggForm");
+    if (!form) return;
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const name = (data.get("name") || "").trim().slice(0, 60);
+      const text = (data.get("text") || "").trim().slice(0, 500);
+      if (!text) return;
+      DB.addGlobalSuggestion({ name, text });
       form.reset();
     });
   }
@@ -848,6 +929,27 @@
     const dialog = document.getElementById("previewDialog");
     const close = document.getElementById("previewClose");
     if (dialog && close) close.addEventListener("click", () => dialog.close());
+    const suggForm = document.getElementById("previewSuggForm");
+    if (dialog && suggForm) {
+      suggForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const tripId = dialog.dataset.tripId;
+        const text = (new FormData(suggForm).get("text") || "").trim();
+        if (!tripId || !text) return;
+        DB.addSuggestion(tripId, { text: text.slice(0, 500) });
+        suggForm.reset();
+      });
+    }
+  }
+
+  // Keeps the preview popup's suggestion list live while it's open — every
+  // other field is a point-in-time snapshot from when it was opened, but
+  // suggestions are the one thing worth seeing update in real time.
+  function refreshOpenPreview() {
+    const dialog = document.getElementById("previewDialog");
+    if (!dialog || !dialog.open || !dialog.dataset.tripId) return;
+    const a = findAdventure(dialog.dataset.tripId);
+    if (a) renderSuggestionList(document.getElementById("previewSuggList"), a.suggestions, a.id);
   }
 
   /* ---------- JSON save / load ---------- */
@@ -1180,7 +1282,7 @@
     CATEGORIES.forEach((k) => { plan.categories[k] = []; });
     tripsIndex.forEach((t) => {
       if (t.archived || !plan.categories[t.category]) return;
-      const d = tripDataCache[t.id] || { stops: [], costs: [], links: [], attendees: [] };
+      const d = tripDataCache[t.id] || { stops: [], costs: [], links: [], suggestions: [], attendees: [] };
       plan.categories[t.category].push({
         id: t.id,
         name: t.title,
@@ -1188,6 +1290,7 @@
         stops: d.stops,
         costs: d.costs,
         links: d.links || [],
+        suggestions: d.suggestions || [],
         attendees: d.attendees,
       });
     });
@@ -1213,12 +1316,14 @@
             stops: data.stops,
             costs: data.costs,
             links: data.links || [],
+            suggestions: data.suggestions || [],
             attendees: data.attendees.map((a) => a.id),
           };
           rebuildModel();
           const trip = tripsIndex.find((x) => x.id === t.id);
           if (trip) renderCategory(trip.category);
           else renderAll();
+          refreshOpenPreview();
         });
       });
 
@@ -1360,6 +1465,36 @@
     }, 400);
   }
 
+  // Native <dialog> modals stop click-through to the page but iOS Safari
+  // still lets a finger drag scroll the body behind them — this watches
+  // every dialog's `open` attribute and locks/unlocks the page scroll to
+  // match, restoring the exact scroll position on close.
+  function wireDialogScrollLock() {
+    function isAnyDialogOpen() {
+      return !!document.querySelector("dialog[open]");
+    }
+    function sync() {
+      const open = isAnyDialogOpen();
+      const locked = document.body.classList.contains("dialog-lock");
+      if (open && !locked) {
+        const y = window.scrollY;
+        document.body.dataset.lockScrollY = String(y);
+        document.body.style.top = `-${y}px`;
+        document.body.classList.add("dialog-lock");
+      } else if (!open && locked) {
+        const y = Number(document.body.dataset.lockScrollY || 0);
+        document.body.classList.remove("dialog-lock");
+        document.body.style.top = "";
+        delete document.body.dataset.lockScrollY;
+        window.scrollTo(0, y);
+      }
+    }
+    new MutationObserver(sync).observe(document.body, {
+      attributes: true, attributeFilter: ["open"], subtree: true,
+    });
+    sync();
+  }
+
   /* ---------- Boot ---------- */
   // .has-js gates the reveal-hidden state so content stays visible without JS
   document.documentElement.classList.add("has-js");
@@ -1372,7 +1507,9 @@
     syncMode = mode;
 
     applyPhotos();
+    wireDialogScrollLock();
     wireCrew();
+    wireGlobalSuggestions();
     wireCreateButtons();
     wireAdvDialog();
     wirePreviewDialog();

@@ -181,6 +181,14 @@
         <div class="adventure__stops" id="previewStops"></div>
         <div class="adventure__costrows" id="previewCosts"></div>
         <p class="adventure__money" id="previewMoney"></p>
+        <div class="adventure__suggs">
+          <h5 class="adventure__suggtitle">💡 Suggestions</h5>
+          <div class="adventure__sugglist" id="previewSuggList"></div>
+          <form class="adventure__suggform" id="previewSuggForm">
+            <input name="text" placeholder="Suggest something for this one…" maxlength="500" />
+            <button type="submit" class="btn btn--ghost btn--sm">Send</button>
+          </form>
+        </div>
       </div>
 
       <div class="dialog__actions">
@@ -649,6 +657,26 @@
           made changes you want to keep. On a live crew link, backups double as snapshots you
           can keep before big edits.
         </p>
+      </div>
+    </section>
+
+    <!-- SUGGESTIONS -->
+    <section class="stop" id="suggestions" data-accent="clay">
+      <header class="stop__head">
+        <span class="stop__num">✎</span>
+        <div>
+          <h2 class="stop__title">Suggestions &amp; fixes</h2>
+          <p class="stop__tag">Spot a bug, or want something added? Drop it here — no group chat needed.</p>
+        </div>
+      </header>
+      <div class="stop__grid">
+        <div class="sugg__list" id="globalSuggList" aria-live="polite"></div>
+        <form class="add" id="globalSuggForm">
+          <h3 class="add__title">Send a suggestion</h3>
+          <label>Name (optional) <input name="name" placeholder="So we know who to thank" maxlength="60" /></label>
+          <label>What's up? <textarea name="text" rows="3" placeholder="Found a bug, or something you'd like to see…" maxlength="500" required></textarea></label>
+          <button class="btn btn--solid" type="submit">Send it</button>
+        </form>
       </div>
     </section>
   </main>

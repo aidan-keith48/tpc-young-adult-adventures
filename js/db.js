@@ -39,7 +39,7 @@ window.TrailheadDB = (function () {
   // ---------------------------------------------------------------
   function createLocalBackend() {
     const STORAGE_KEY = "trailhead-local-store-v1";
-    const store = { trips: {}, tripData: {}, trash: {}, people: {} };
+    const store = { trips: {}, tripData: {}, trash: {}, people: {}, suggestions: {} };
 
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -49,6 +49,7 @@ window.TrailheadDB = (function () {
         store.tripData = saved.tripData || {};
         store.trash = saved.trash || {};
         store.people = saved.people || {};
+        store.suggestions = saved.suggestions || {};
       }
     } catch {
       // corrupt/unavailable storage — start fresh
@@ -68,6 +69,7 @@ window.TrailheadDB = (function () {
     const tripDataListeners = {}; // tripId -> Set<fn>
     const trashListeners = new Set();
     const peopleListeners = new Set();
+    const globalSuggestionListeners = new Set();
 
     function currentPeopleList() {
       return Object.entries(store.people).map(([id, p]) => ({ id, ...p }));
@@ -76,6 +78,18 @@ window.TrailheadDB = (function () {
     function notifyPeople() {
       const list = currentPeopleList();
       peopleListeners.forEach((cb) => cb(list));
+    }
+
+    // Site-wide feedback box — not tied to any adventure.
+    function currentGlobalSuggestionsList() {
+      return Object.entries(store.suggestions)
+        .map(([id, s]) => ({ id, ...s }))
+        .sort((a, b) => b.at - a.at);
+    }
+
+    function notifyGlobalSuggestions() {
+      const list = currentGlobalSuggestionsList();
+      globalSuggestionListeners.forEach((cb) => cb(list));
     }
 
     function currentTrashList() {
@@ -300,6 +314,25 @@ window.TrailheadDB = (function () {
         notifyTrips();
       },
 
+      /* ---- site-wide suggestion box (not tied to an adventure) ---- */
+      onGlobalSuggestions(cb) {
+        globalSuggestionListeners.add(cb);
+        cb(currentGlobalSuggestionsList());
+        return () => globalSuggestionListeners.delete(cb);
+      },
+
+      addGlobalSuggestion(fields) {
+        store.suggestions[uid()] = { ...fields, at: Date.now() };
+        persist();
+        notifyGlobalSuggestions();
+      },
+
+      removeGlobalSuggestion(id) {
+        delete store.suggestions[id];
+        persist();
+        notifyGlobalSuggestions();
+      },
+
       addStop(tripId, fields) {
         const data = ensureTripData(tripId);
         data.stops[uid()] = { ...fields, order: nextOrder(data.stops) };
@@ -446,6 +479,32 @@ window.TrailheadDB = (function () {
     function notifyPeople() {
       const list = currentPeopleList();
       peopleListeners.forEach((cb) => cb(list));
+    }
+
+    // Site-wide feedback box — sibling of trips/tripData/people, not tied
+    // to any adventure.
+    let cachedGlobalSuggestions = {};
+    let globalSuggestionsAttached = false;
+    const globalSuggestionListeners = new Set();
+
+    function ensureGlobalSuggestionsListener() {
+      if (globalSuggestionsAttached) return;
+      globalSuggestionsAttached = true;
+      crewRef.child("suggestions").on("value", (snap) => {
+        cachedGlobalSuggestions = snap.val() || {};
+        notifyGlobalSuggestions();
+      });
+    }
+
+    function currentGlobalSuggestionsList() {
+      return Object.entries(cachedGlobalSuggestions)
+        .map(([id, s]) => ({ id, ...s }))
+        .sort((a, b) => b.at - a.at);
+    }
+
+    function notifyGlobalSuggestions() {
+      const list = currentGlobalSuggestionsList();
+      globalSuggestionListeners.forEach((cb) => cb(list));
     }
 
     function ensureTripsListener() {
@@ -677,6 +736,23 @@ window.TrailheadDB = (function () {
           withSummary(updates, tripId, t);
         });
         commit(updates);
+      },
+
+      /* ---- site-wide suggestion box (not tied to an adventure) ---- */
+      onGlobalSuggestions(cb) {
+        ensureGlobalSuggestionsListener();
+        globalSuggestionListeners.add(cb);
+        cb(currentGlobalSuggestionsList());
+        return () => globalSuggestionListeners.delete(cb);
+      },
+
+      addGlobalSuggestion(fields) {
+        const id = crewRef.child("suggestions").push().key;
+        commit({ ["suggestions/" + id]: { ...fields, at: Date.now() } });
+      },
+
+      removeGlobalSuggestion(id) {
+        commit({ ["suggestions/" + id]: null });
       },
 
       removeAttendee(tripId, attendeeId) {
@@ -1020,6 +1096,9 @@ window.TrailheadDB = (function () {
     removeLink: (...a) => backend.removeLink(...a),
     addSuggestion: (...a) => backend.addSuggestion(...a),
     removeSuggestion: (...a) => backend.removeSuggestion(...a),
+    onGlobalSuggestions: (...a) => backend.onGlobalSuggestions(...a),
+    addGlobalSuggestion: (...a) => backend.addGlobalSuggestion(...a),
+    removeGlobalSuggestion: (...a) => backend.removeGlobalSuggestion(...a),
     setPeopleOverride: (...a) => backend.setPeopleOverride(...a),
   };
 })();
