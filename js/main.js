@@ -1486,7 +1486,11 @@
         document.body.classList.remove("dialog-lock");
         document.body.style.top = "";
         delete document.body.dataset.lockScrollY;
-        window.scrollTo(0, y);
+        // the site sets `html { scroll-behavior: smooth }` globally, and the
+        // legacy two-arg scrollTo() inherits that — without an explicit
+        // "instant" behavior this restore visibly animates from the top
+        // instead of snapping straight back to where the dialog opened.
+        window.scrollTo({ top: y, left: 0, behavior: "instant" });
       }
     }
     new MutationObserver(sync).observe(document.body, {
